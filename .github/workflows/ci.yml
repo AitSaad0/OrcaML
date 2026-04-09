@@ -63,7 +63,7 @@ jobs:
       - name: Check no multiple heads
         run: |
           heads=$(alembic heads 2>&1)
-          count=$(echo "$heads" | grep -c "(head)")
+          count=$(echo "$heads" | grep -c "(head)" || true)
           if [ "$count" -gt 1 ]; then
             echo "❌ Multiple Alembic heads detected:"
             echo "$heads"
