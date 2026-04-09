@@ -1,0 +1,77 @@
+import os
+import pytest
+
+os.environ.setdefault("DB_USER", "test")
+os.environ.setdefault("DB_PASSWORD", "test")
+os.environ.setdefault("DB_HOST", "localhost")
+os.environ.setdefault("DB_PORT", "5432")
+os.environ.setdefault("DB_NAME", "test_db")
+os.environ.setdefault("SECRET_KEY", "test-secret-key-for-testing-only-32chars!!")
+os.environ.setdefault("ALGORITHM", "HS256")
+os.environ.setdefault("ACCESS_TOKEN_EXPIRE_MINUTES", "30")
+
+from fastapi.testclient import TestClient
+from sqlalchemy import create_engine, String
+from sqlalchemy.orm import sessionmaker
+from sqlalchemy.dialects.postgresql import UUID as PG_UUID
+
+from src.config.db import Base, get_db
+from main import app
+
+# SQLite in-memory — UUID columns stored as String
+TEST_DATABASE_URL = "sqlite:///./test.db"
+engine = create_engine(TEST_DATABASE_URL, connect_args={"check_same_thread": False})
+TestingSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+
+
+def override_get_db():
+    db = TestingSessionLocal()
+    try:
+        yield db
+    finally:
+        db.close()
+
+
+@pytest.fixture(autouse=True)
+def setup_database():
+    """Fresh tables for every single test."""
+    Base.metadata.create_all(bind=engine)
+    yield
+    Base.metadata.drop_all(bind=engine)
+
+
+@pytest.fixture
+def client(setup_database):
+    """Test client with DB override — depends on setup_database explicitly."""
+    app.dependency_overrides[get_db] = override_get_db
+    with TestClient(app) as c:
+        yield c
+    app.dependency_overrides.clear()
+
+
+@pytest.fixture
+def registered_user(client):
+    """A pre-registered user."""
+    response = client.post("/auth/register", json={
+        "email": "test@orcaml.com",
+        "password": "Secret123",
+        "full_name": "Test User"
+    })
+    assert response.status_code == 201, response.json()
+    return response.json()
+
+
+@pytest.fixture
+def auth_headers(client):
+    """Register + login → Authorization headers."""
+    client.post("/auth/register", json={
+        "email": "test@orcaml.com",
+        "password": "Secret123",
+        "full_name": "Test User"
+    })
+    response = client.post("/auth/login", json={
+        "email": "test@orcaml.com",
+        "password": "Secret123"
+    })
+    token = response.json()["access_token"]
+    return {"Authorization": f"Bearer {token}"}
