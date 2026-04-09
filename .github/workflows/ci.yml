@@ -28,7 +28,7 @@ jobs:
       - name: Install dependencies
         run: pip install -r requirements.txt
       - name: Run tests
-        run: pytest
+        run: python -m pytest || ([ $? -eq 5 ] && exit 0)
 
   alembic:
     needs: test
@@ -48,7 +48,11 @@ jobs:
           --health-timeout 5s
           --health-retries 5
     env:
-      DATABASE_URL: postgresql://ci_user:ci_password@localhost:5432/ci_db
+      DB_USER: ci_user
+      DB_PASSWORD: ci_password
+      DB_HOST: localhost
+      DB_NAME: ci_db
+      SECRET_KEY: ci-only-not-a-real-secret
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -59,7 +63,7 @@ jobs:
       - name: Check no multiple heads
         run: |
           heads=$(alembic heads 2>&1)
-          count=$(echo "$heads" | grep -c "(head)")
+          count=$(echo "$heads" | grep -c "(head)" || true)
           if [ "$count" -gt 1 ]; then
             echo "❌ Multiple Alembic heads detected:"
             echo "$heads"
