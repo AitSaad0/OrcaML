@@ -8,3 +8,4 @@ alembic
 pwdlib[bcrypt]
 python-jose[cryptography]
 python-dotenv
+pytest
