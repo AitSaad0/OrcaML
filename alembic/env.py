@@ -4,6 +4,8 @@ from alembic import context
 
 from src.config.config import settings
 from src.config.db import Base
+from src.auth.models.user import User  # noqa: F401
+
 
 config = context.config
 if config.config_file_name is not None:
