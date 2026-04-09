@@ -13,7 +13,6 @@ os.environ.setdefault("ACCESS_TOKEN_EXPIRE_MINUTES", "30")
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
-from sqlalchemy.dialects.postgresql import UUID as PG_UUID
 
 from src.config.db import Base, get_db
 from main import app
