@@ -1,7 +1,6 @@
 from uuid import UUID
 from alembic.util import status
 from fastapi import HTTPException
-from fastapi import HTTPException
 from sqlalchemy.orm import Session
 
 from src.project.models.project import Project
