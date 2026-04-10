@@ -4,7 +4,6 @@ from fastapi import HTTPException
 from fastapi import HTTPException
 from sqlalchemy.orm import Session
 
-from src.config import db
 from src.project.models.project import Project
 from src.project.schemas.projects import CreateProjectRequest, UpdateProjectRequest
 
