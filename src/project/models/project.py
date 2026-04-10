@@ -3,7 +3,6 @@ import uuid
 from alembic.environment import Column
 from sqlalchemy import UUID, DateTime, ForeignKey, String, func
 from sqlalchemy.orm import relationship
-from sqlalchemy.orm import relationship
 
 from src.config.db import Base
 
