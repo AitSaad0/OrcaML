@@ -13,11 +13,9 @@ os.environ.setdefault("ACCESS_TOKEN_EXPIRE_MINUTES", "30")
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
-
 from src.config.db import Base, get_db
 from main import app
 
-# SQLite in-memory — UUID columns stored as String
 TEST_DATABASE_URL = "sqlite:///./test.db"
 engine = create_engine(TEST_DATABASE_URL, connect_args={"check_same_thread": False})
 TestingSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
@@ -40,8 +38,7 @@ def setup_database():
 
 
 @pytest.fixture
-def client(setup_database):
-    """Test client with DB override — depends on setup_database explicitly."""
+def client():  # ← removed setup_database dependency, autouse handles it
     app.dependency_overrides[get_db] = override_get_db
     with TestClient(app) as c:
         yield c
@@ -61,16 +58,42 @@ def registered_user(client):
 
 
 @pytest.fixture
-def auth_headers(client):
-    """Register + login → Authorization headers."""
-    client.post("/auth/register", json={
-        "email": "test@orcaml.com",
-        "password": "Secret123",
-        "full_name": "Test User"
-    })
+def auth_headers(client, registered_user):  # ← reuse registered_user, don't re-register
+    """Login with the registered user → Authorization headers."""
     response = client.post("/auth/login", json={
         "email": "test@orcaml.com",
         "password": "Secret123"
     })
+    assert response.status_code == 200, response.json()
     token = response.json()["access_token"]
     return {"Authorization": f"Bearer {token}"}
+
+
+@pytest.fixture
+def create_project(client, auth_headers):
+    """Create a project as the default authenticated user."""
+    def _create(name="My Project", description=None):
+        response = client.post("/projects/", json={
+            "name": name,
+            "description": description
+        }, headers=auth_headers)
+        assert response.status_code == 201, response.json()
+        return response.json()
+    return _create
+
+
+@pytest.fixture
+def user_b_headers(client):
+    """A second user — used to test ownership/isolation."""
+    client.post("/auth/register", json={
+        "email": "userB@orcaml.com",
+        "password": "Secret123",
+        "full_name": "User B"
+    })
+    response = client.post("/auth/login", json={
+        "email": "userB@orcaml.com",
+        "password": "Secret123"
+    })
+    assert response.status_code == 200, response.json()
+    token = response.json()["access_token"]
+    return {"Authorization": f"Bearer {token}"} 

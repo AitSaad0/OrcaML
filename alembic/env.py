@@ -5,6 +5,7 @@ from alembic import context
 from src.config.config import settings
 from src.config.db import Base
 from src.auth.models.user import User  # noqa: F401
+from src.project.models.project import Project  # noqa: F401
 
 
 config = context.config
