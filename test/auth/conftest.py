@@ -74,3 +74,35 @@ def auth_headers(client):
     })
     token = response.json()["access_token"]
     return {"Authorization": f"Bearer {token}"}
+
+
+
+# --- project fixtures ---
+
+@pytest.fixture
+def create_project(client, auth_headers):
+    """Create a project as the default authenticated user."""
+    def _create(name="My Project", description=None):
+        response = client.post("/projects/", json={
+            "name": name,
+            "description": description
+        }, headers=auth_headers)
+        assert response.status_code == 201, response.json()
+        return response.json()
+    return _create
+
+
+@pytest.fixture
+def user_b_headers(client):
+    """A second user — used to test ownership/isolation."""
+    client.post("/auth/register", json={
+        "email": "userB@orcaml.com",
+        "password": "Secret123",
+        "full_name": "User B"
+    })
+    response = client.post("/auth/login", json={
+        "email": "userB@orcaml.com",
+        "password": "Secret123"
+    })
+    token = response.json()["access_token"]
+    return {"Authorization": f"Bearer {token}"}
