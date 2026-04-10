@@ -1,5 +1,5 @@
 from uuid import UUID
-from alembic.util import status
+from starlette import status
 from fastapi import HTTPException
 from sqlalchemy.orm import Session
 

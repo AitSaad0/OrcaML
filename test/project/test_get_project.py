@@ -82,4 +82,4 @@ def test_get_project_does_not_return_other_users_data(client, auth_headers, crea
 
     response = client.get(f"/projects/{user_b_project_id}", headers=auth_headers)
 
-    assert response.status_code == 404
+    assert response.status_code == 404  
