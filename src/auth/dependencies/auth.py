@@ -3,6 +3,7 @@ from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from sqlalchemy.orm import Session
 import uuid
 
+from src.project.models.project import Project
 from src.config.db import get_db
 from src.auth.models.user import User
 from src.auth.security.tokens import decode_access_token
@@ -45,3 +46,23 @@ def get_current_user(
         )
 
     return user
+
+# src/auth/dependencies.py
+
+def get_project_or_403(
+    project_id: uuid.UUID,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> Project:
+    """Verify the project exists AND belongs to the current user."""
+    project = db.query(Project).filter(Project.id == project_id).first()
+
+    if project is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND,
+                            detail="Project not found")
+
+    if project.user_id != current_user.id:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN,
+                            detail="Access denied")
+
+    return project
