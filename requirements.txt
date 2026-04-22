@@ -10,3 +10,5 @@ python-jose[cryptography]
 python-dotenv
 pytest
 httpx
+boto3
+python-multipart

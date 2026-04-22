@@ -11,6 +11,11 @@ class Settings(BaseSettings):
     SECRET_KEY: str
     ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
+    
+    R2_ENDPOINT_URL: str
+    R2_ACCESS_KEY: str
+    R2_SECRET_KEY: str
+    R2_BUCKET_NAME: str
 
     @property
     def DATABASE_URL(self) -> str:

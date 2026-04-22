@@ -9,11 +9,13 @@ from src.project.models.project import Project  # noqa: F401
 from src.environment.models.Environment import Environment  # noqa: F401
 from src.environment.models.Task_type import TaskType  # noqa: F401
 from src.environment.models.Environment_status import EnvironmentStatus  # noqa: F401
+from src.dataset.models.dataset import Dataset
 
 
 config = context.config
 if config.config_file_name is not None:
     fileConfig(config.config_file_name)
+
 
 target_metadata = Base.metadata
 config.set_main_option("sqlalchemy.url", settings.DATABASE_URL)
