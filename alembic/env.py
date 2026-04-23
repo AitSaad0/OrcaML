@@ -4,13 +4,8 @@ from alembic import context
 
 from src.config.config import settings
 from src.config.db import Base
-from src.auth.models.user import User
 
-from src.project.models.project import Project
 
-from src.environment.models.Environment import Environment
-from src.environment.models.Task_type import TaskType
-from src.environment.models.Environment_status import EnvironmentStatus
 
 from src.runs.models.run import Run, TrainingConfig  # noqa: F401
 
