@@ -1,12 +1,17 @@
-fastapi
-uvicorn
-sqlalchemy
-psycopg2-binary
-pydantic-settings
-pydantic[email]
-alembic
-pwdlib[bcrypt]
-python-jose[cryptography]
-python-dotenv
-pytest
-httpx
+        fastapi
+        uvicorn
+        sqlalchemy
+        psycopg2-binary
+        pydantic-settings
+        pydantic[email]
+        alembic
+        pwdlib[bcrypt]
+        python-jose[cryptography]
+        python-dotenv
+        pytest
+        httpx
+       celery[redis]
+        redis
+        scikit-learn==1.5.1
+        mlflow==2.10.2
+      

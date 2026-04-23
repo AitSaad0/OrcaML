@@ -1,5 +1,4 @@
 services:
-
   db:
     image: postgres:16-alpine
     restart: unless-stopped
@@ -17,7 +16,39 @@ services:
       test: ["CMD-SHELL", "pg_isready -U ${DB_USER} -d ${DB_NAME}"]
       interval: 5s
       timeout: 5s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    networks:
+      - orcaml_network
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
       retries: 5
+
+  mlflow:
+    image: ghcr.io/mlflow/mlflow:v2.11.0
+    restart: unless-stopped
+    ports:
+      - "5000:5000"
+    networks:
+      - orcaml_network
+    volumes:
+      - mlflow_data:/mlflow
+    environment:
+      MLFLOW_ALLOW_ORIGIN: "*"
+      GUNICORN_CMD_ARGS: "--forwarded-allow-ips=*"
+    command: >
+      mlflow server
+      --host 0.0.0.0
+      --port 5000
+      --backend-store-uri sqlite:////mlflow/mlflow.db
+      --default-artifact-root /mlflow/artifacts
 
   app:
     build: .
@@ -26,6 +57,9 @@ services:
       - .env
     environment:
       DB_HOST: db
+      CELERY_BROKER_URL: redis://redis:6379/0
+      CELERY_RESULT_BACKEND: redis://redis:6379/1
+      MLFLOW_TRACKING_URI: http://mlflow:5000
     volumes:
       - .:/app
     ports:
@@ -35,9 +69,36 @@ services:
     depends_on:
       db:
         condition: service_healthy
+      redis:
+        condition: service_healthy
+      mlflow:
+        condition: service_started
     command: >
       sh -c "alembic upgrade head &&
              uvicorn main:app --host 0.0.0.0 --port 8000 --reload"
+
+  worker:
+    build: .
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      DB_HOST: db
+      CELERY_BROKER_URL: redis://redis:6379/0
+      CELERY_RESULT_BACKEND: redis://redis:6379/1
+      MLFLOW_TRACKING_URI: http://mlflow:5000
+    volumes:
+      - .:/app
+    networks:
+      - orcaml_network
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      mlflow:
+        condition: service_started
+    command: celery -A src.config.celery.celery worker --loglevel=info
 
 networks:
   orcaml_network:
@@ -45,3 +106,4 @@ networks:
 
 volumes:
   postgres_data:
+  mlflow_data:

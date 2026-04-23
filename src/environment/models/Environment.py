@@ -21,6 +21,7 @@ class Environment(Base):
     project_id = Column(UUID(as_uuid=True), ForeignKey("projects.id"), nullable=False)
 
     project = relationship("Project", back_populates="environments")
+    runs = relationship("Run", back_populates="environment", cascade="all, delete-orphan")
 
     def __repr__(self):
         return f"<Environment id={self.id} name={self.name}>"
