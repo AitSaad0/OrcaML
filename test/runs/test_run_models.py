@@ -1,6 +1,5 @@
 from uuid import uuid4
 
-import pytest
 
 from src.runs.models.run import Run, RunStatus, Algorithm, TrainingConfig
 
