@@ -1,4 +1,5 @@
 from logging.config import fileConfig
+
 from sqlalchemy import engine_from_config, pool
 from alembic import context
 
@@ -6,23 +7,30 @@ from src.config.config import settings
 from src.config.db import Base
 
 # =========================
-# IMPORT MODELS (ORDER SAFE)
+# IMPORT MODELS (IMPORTANT)
+# =========================
+# Force l'enregistrement de tous les modèles dans Base.metadata
+import src.models  # noqa: F401
+
+# =========================
+# ALEMBIC CONFIG
 # =========================
 config = context.config
 
 if config.config_file_name is not None:
     fileConfig(config.config_file_name)
 
-# IMPORTANT
+# Target metadata pour autogenerate
 target_metadata = Base.metadata
 
+# DB URL
 config.set_main_option("sqlalchemy.url", settings.DATABASE_URL)
 
 
 # =========================
-# OFFLINE
+# OFFLINE MODE
 # =========================
-def run_migrations_offline():
+def run_migrations_offline() -> None:
     url = config.get_main_option("sqlalchemy.url")
 
     context.configure(
@@ -31,6 +39,7 @@ def run_migrations_offline():
         literal_binds=True,
         dialect_opts={"paramstyle": "named"},
         compare_type=True,
+        compare_server_default=True,
     )
 
     with context.begin_transaction():
@@ -38,9 +47,9 @@ def run_migrations_offline():
 
 
 # =========================
-# ONLINE
+# ONLINE MODE
 # =========================
-def run_migrations_online():
+def run_migrations_online() -> None:
     connectable = engine_from_config(
         config.get_section(config.config_ini_section, {}),
         prefix="sqlalchemy.",
@@ -52,12 +61,16 @@ def run_migrations_online():
             connection=connection,
             target_metadata=target_metadata,
             compare_type=True,
+            compare_server_default=True,
         )
 
         with context.begin_transaction():
             context.run_migrations()
 
 
+# =========================
+# ENTRY POINT
+# =========================
 if context.is_offline_mode():
     run_migrations_offline()
 else:
