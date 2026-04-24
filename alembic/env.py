@@ -8,22 +8,6 @@ from src.config.db import Base
 # =========================
 # IMPORT MODELS (ORDER SAFE)
 # =========================
-
-# AUTH
-from src.auth.models.user import User
-
-# PROJECT
-from src.project.models.project import Project
-
-# ENVIRONMENT
-from src.environment.models.Environment import Environment
-from src.environment.models.Task_type import TaskType
-from src.environment.models.Environment_status import EnvironmentStatus
-
-# RUNS
-from src.runs.models.run import Run, TrainingConfig
-
-
 config = context.config
 
 if config.config_file_name is not None:
