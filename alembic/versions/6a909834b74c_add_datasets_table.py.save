@@ -1,0 +1,37 @@
+"""add datasets table
+
+Revision ID: 6a909834b74c
+Revises: bd77b6d46852
+Create Date: 2026-04-21 10:34:11.111045
+
+"""
+from typing import Sequence, Union
+
+from alembic import op
+import sqlalchemy as sa
+
+
+# revision identifiers, used by Alembic.
+revision: str = '6a909834b74c'
+down_revision: Union[str, Sequence[str], None] = 'bd77b6d46852'
+branch_labels: Union[str, Sequence[str], None] = None
+depends_on: Union[str, Sequence[str], None] = None
+
+
+
+from sqlalchemy.dialects import postgresql
+
+def upgrade() -> None:
+    op.create_table(
+        'datasets',
+        sa.Column('id', postgresql.UUID(as_uuid=True), primary_key=True),
+        sa.Column('name', sa.String(), nullable=False),
+        sa.Column('size', sa.Integer(), nullable=False),
+        sa.Column('r2_path', sa.String(), nullable=False),
+        sa.Column('env_id', postgresql.UUID(as_uuid=True), sa.ForeignKey('environments.id'), nullable=False),
+        sa.Column('uploaded_at', sa.DateTime(), nullable=True),
+    )
+
+def downgrade() -> None:
+    op.drop_table('datasets')
+
