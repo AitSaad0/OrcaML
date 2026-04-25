@@ -1,11 +1,13 @@
 # -------- STAGE 1: Builder --------
-FROM python:3.13-slim AS builder
+FROM python:3.11-slim AS builder
 
 WORKDIR /app
 
 RUN apt-get update && apt-get install -y \
     gcc \
+    g++ \
     libpq-dev \
+    build-essential \
     && rm -rf /var/lib/apt/lists/*
 
 COPY requirements.txt .
@@ -14,7 +16,7 @@ RUN pip install --no-cache-dir --prefix=/install -r requirements.txt
 
 
 # -------- STAGE 2: Final --------
-FROM python:3.13-slim
+FROM python:3.11-slim
 
 WORKDIR /app
 

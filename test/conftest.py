@@ -176,3 +176,10 @@ def create_environment(client, auth_headers, create_project):
         return response.json(), project_id
 
     return _create
+@pytest.fixture
+def db_session(setup_database):
+    db = TestingSessionLocal()
+    try:
+        yield db
+    finally:
+        db.close()
