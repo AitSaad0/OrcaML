@@ -5,3 +5,5 @@ __pycache__/
 *.pyc
 *.save
 *.save.1
+.pytest_cache/
+.ruffle_cache/
