@@ -1,0 +1,6 @@
+-r requirements-base.txt
+-r requirements-auth.txt
+-r requirements-worker.txt
+-r requirements-cloud.txt
+-r requirements-ml.txt
+-r requirements-dev.txt
