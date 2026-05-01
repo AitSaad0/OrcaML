@@ -79,7 +79,7 @@ def test_preview_success(client, auth_headers, env_id):
 def test_preview_requires_auth(client, env_id):
     """No token → 401."""
     with patch("src.dataset.services.preview_service.get_s3_client"):
-        response = client.get(f"/datasets/some-uuid/preview")
+        response = client.get("/datasets/some-uuid/preview")
     assert response.status_code == 401
 
 
