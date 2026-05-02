@@ -14,6 +14,9 @@ from src.dataset.schemas.dataset import (
     DeleteDatasetResponse,
 )
 from src.dataset.schemas.preview import DataPreviewResponse
+from src.dataset.services import stats_service
+from src.dataset.schemas.stats import DataStatsResponse
+
 router = APIRouter(prefix="/datasets", tags=["datasets"])
 
 @router.post("/upload", response_model=UploadDatasetResponse, status_code=status.HTTP_201_CREATED)
@@ -70,6 +73,24 @@ def preview_dataset(
 
     # generate preview by reading from R2
     return preview_service.generate_preview(
+        r2_path    = dataset.r2_path,
+        dataset_id = str(dataset_id),
+    )
+@router.get("/{dataset_id}/stats", response_model=DataStatsResponse)
+def stats_dataset(
+    dataset_id: UUID,
+    db:         Session = Depends(get_db),
+    current_user: User  = Depends(get_current_user),
+):
+    """
+    Returns statistics for each column:
+    - numerical: mean, median, std, min, max
+    - categorical: unique count, top value
+    - missing values
+    - duplicate rows
+    """
+    dataset = service.get_dataset(dataset_id=dataset_id, db=db)
+    return stats_service.generate_stats(
         r2_path    = dataset.r2_path,
         dataset_id = str(dataset_id),
     )
