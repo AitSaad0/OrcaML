@@ -77,3 +77,29 @@ def test_upload_r2_failure_returns_500(client, auth_headers, env_id):
             headers=auth_headers,
         )
         assert response.status_code == 500
+
+def test_upload_pdf_rejected(client, auth_headers, env_id):
+    """File with .csv extension but PDF content → 400."""
+    # PDF files start with %PDF
+    pdf_content = b"%PDF-1.4 fake pdf content"
+    response = client.post(
+        "/datasets/upload",
+        data={"env_id": env_id},
+        files={"file": ("fake.csv", io.BytesIO(pdf_content), "text/csv")},
+        headers=auth_headers,
+    )
+    assert response.status_code == 400
+    assert "PDF" in response.json()["detail"]
+
+
+def test_upload_invalid_content_rejected(client, auth_headers, env_id):
+    """File with .csv extension but invalid content → 400."""
+    bad_content = b"\x00\x01\x02\x03 not a csv"
+    response = client.post(
+        "/datasets/upload",
+        data={"env_id": env_id},
+        files={"file": ("bad.csv", io.BytesIO(bad_content), "text/csv")},
+        headers=auth_headers,
+    )
+    assert response.status_code == 400
+    assert "valid CSV" in response.json()["detail"]
