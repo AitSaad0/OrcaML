@@ -26,7 +26,7 @@ def env_id(client, auth_headers, create_project):
 # ── tests ──────────────────────────────────────────────────────
 def test_upload_csv_success(client, auth_headers, env_id):
     """Valid CSV → 201 + correct fields returned."""
-    with patch("src.dataset.r2_service.upload_to_r2") as mock_r2:
+    with patch("src.dataset.services.r2_service.upload_to_r2") as mock_r2:
         mock_r2.return_value = "datasets/test-id/data.csv"
         response = client.post(
             "/datasets/upload",
@@ -45,7 +45,7 @@ def test_upload_csv_success(client, auth_headers, env_id):
 
 def test_upload_non_csv_rejected(client, auth_headers, env_id):
     """Uploading a .txt file → 400 Bad Request."""
-    with patch("src.dataset.r2_service.upload_to_r2"):
+    with patch("src.dataset.services.r2_service.upload_to_r2"):
         response = client.post(
             "/datasets/upload",
             data={"env_id": env_id},
@@ -57,7 +57,7 @@ def test_upload_non_csv_rejected(client, auth_headers, env_id):
 
 def test_upload_requires_auth(client, env_id):
     """No token → 401 Unauthorized."""
-    with patch("src.dataset.r2_service.upload_to_r2"):
+    with patch("src.dataset.services.r2_service.upload_to_r2"):
         response = client.post(
             "/datasets/upload",
             data={"env_id": env_id},
@@ -67,7 +67,7 @@ def test_upload_requires_auth(client, env_id):
 
 def test_upload_r2_failure_returns_500(client, auth_headers, env_id):
     """If R2 raises an error the endpoint returns 500."""
-    with patch("src.dataset.r2_service.upload_to_r2") as mock_r2:
+    with patch("src.dataset.services.r2_service.upload_to_r2") as mock_r2:
         from fastapi import HTTPException
         mock_r2.side_effect = HTTPException(status_code=500, detail="R2 upload failed")
         response = client.post(
