@@ -5,11 +5,9 @@ from src.project.routers.project import router as projects_router
 from src.environment.routes.environment_routes import router as environments_router
 from src.runs.routers.run import router as runs_router
 from src.dataset.routers.dataset import router as dataset_router
+from src.deployments.routers.deployment_routes import router as deployments_router
 
-import src.project.models.project  # noqa: F401
-import src.environment.models.Environment  # noqa: F401
-import src.auth.models.user  # noqa: F401
-import src.runs.models.run  # noqa: F401
+from src.models import *  # noqa: F401, F403
 
 app = FastAPI(title="OrcaML")
 
@@ -19,6 +17,7 @@ app.include_router(projects_router)
 app.include_router(runs_router)
 app.include_router(environments_router)
 app.include_router(dataset_router)
+app.include_router(deployments_router)
 
 @app.get("/health")
 def health():

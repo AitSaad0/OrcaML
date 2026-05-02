@@ -24,6 +24,10 @@ class Environment(Base):
 
     runs = relationship("Run", back_populates="environment", cascade="all, delete-orphan")
     datasets = relationship("Dataset", back_populates="environment")
+    deployments = relationship("Deployment", back_populates="environment", cascade="all, delete-orphan")
+
+    models = relationship("ModelArtifact", back_populates="environment", cascade="all, delete-orphan")
 
     def __repr__(self):
         return f"<Environment id={self.id} name={self.name}>"
+# patch: missing back_populates for ModelArtifact
