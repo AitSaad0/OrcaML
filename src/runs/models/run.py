@@ -101,6 +101,13 @@ class Run(Base):
         cascade="all, delete-orphan",
     )
 
+    model_artifact = relationship(  # ← ADD
+        "ModelArtifact",
+        back_populates="run",
+        uselist=False,
+        cascade="all, delete-orphan",
+    )
+
 
 class TrainingConfig(Base):
     __tablename__ = "training_configs"
@@ -118,16 +125,16 @@ class TrainingConfig(Base):
     created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), nullable=False)
 
     run = relationship("Run", back_populates="training_config")
-   # Recupère les hyperparamètres par défaut pour un algorithme donné
+
     @staticmethod
     def get_default_hyperparameters(algorithm: Algorithm) -> dict:
-      bounds = HP_BOUNDS.get(algorithm, {})
-      return {
-        param: meta["default"]
-        for param, meta in bounds.items()
-        if "default" in meta
-      }
-     # sert à faire une recherche automatique des meilleures combinaisons.
+        bounds = HP_BOUNDS.get(algorithm, {})
+        return {
+            param: meta["default"]
+            for param, meta in bounds.items()
+            if "default" in meta
+        }
+
     @staticmethod
     def get_hyperparameter_grid(algorithm: Algorithm) -> dict:
         grids = {
@@ -136,7 +143,7 @@ class TrainingConfig(Base):
                 "max_depth": [5, 10, 15],
             },
             Algorithm.SVM: {
-                "kernel": ["rbf", "linear" , "poly"],
+                "kernel": ["rbf", "linear", "poly"],
                 "C": [0.1, 1.0, 10.0],
             },
             Algorithm.KNN: {

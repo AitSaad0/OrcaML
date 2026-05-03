@@ -6,9 +6,7 @@ from datetime import datetime, timezone
 from sqlalchemy.orm import Session
 from sqlalchemy import select
 from sqlalchemy.orm import selectinload
-import src.auth.models.user  # noqa: F401
-import src.project.models.project  # noqa: F401
-import src.environment.models.Environment  # noqa: F401
+import src.models # noqa: F401
 # ML Imports
 from sklearn.datasets import load_iris
 from sklearn.model_selection import train_test_split, cross_val_score
