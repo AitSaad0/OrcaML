@@ -7,3 +7,4 @@ __pycache__/
 *.save.1
 .pytest_cache/
 .ruffle_cache/
+seed_dummy_run.py
