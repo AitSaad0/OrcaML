@@ -462,7 +462,7 @@ def list_deployments(environment_id: uuid.UUID, db: Session) -> list[Deployment]
     else:
         logger.info(f"Found {len(deployments)} deployments for environment {environment_id}")
         logger.debug(
-            f"Deployments summary: "
+            "Deployments summary: "
             + ", ".join(f"{d.id}({d.status})" for d in deployments)
         )
     return deployments

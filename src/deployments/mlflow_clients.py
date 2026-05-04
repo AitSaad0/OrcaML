@@ -60,7 +60,7 @@ def download_model_artifact(mlflow_run_id: str) -> str:
         logger.info(f"Artifact already cached at {existing_pkl} — skipping download")
         return str(existing_pkl)
 
-    logger.debug(f"No cached artifact found — proceeding with MLflow download")
+    logger.debug("No cached artifact found — proceeding with MLflow download")
 
     try:
         client = _get_client()
