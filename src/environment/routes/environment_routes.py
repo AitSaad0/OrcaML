@@ -1,6 +1,6 @@
 import uuid
 from sqlalchemy.orm import Session
-
+import logging
 from src.project.models.project import Project
 from src.auth.dependencies.auth import get_project_or_403
 from src.environment.service.environment_service import (
@@ -24,7 +24,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, status
 
 router = APIRouter(prefix="/environments/{project_id}", tags=["environments"])
 
-
+logger = logging.getLogger(__name__)
 @router.post("/", response_model=EnvironmentCreateResponse, status_code=status.HTTP_201_CREATED)
 def create_environment(
     body: EnvironmentCreateRequest,
@@ -63,6 +63,7 @@ def get_environment(
     project: Project = Depends(get_project_or_403),
     db: Session = Depends(get_db),
 ):
+    logger.info(f">>> GET ENVIRONMENT ROUTE HIT: {environment_id}, user: {project.user_id}")
     environment = get_environment_service(environment_id=environment_id, project_id=project.id, db=db)
     if environment is None:
         raise HTTPException(

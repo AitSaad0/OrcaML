@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, status
 from sqlalchemy.orm import Session
 from uuid import UUID
-
+import logging
 from src.config.db import get_db
 from src.auth.dependencies.auth import get_current_user
 from src.auth.models.user import User
@@ -17,7 +17,7 @@ from src.project.schemas.projects import (
 )
 
 router = APIRouter(prefix="/projects", tags=["projects"])
-
+logger = logging.getLogger(__name__)
 
 @router.post("/", response_model=CreateProjectResponse, status_code=status.HTTP_201_CREATED)
 def create_project(
@@ -33,6 +33,7 @@ def list_projects(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
+    logger.info(f">>> LIST PROJECTS ROUTE HIT for user: {current_user.id}")
     projects = service.list_projects(user_id=current_user.id, db=db)
     return ListProjectsResponse(projects=projects)
 
