@@ -9,6 +9,8 @@ from src.environment.models.Environment import Environment  # noqa: F401
 from src.environment.models.Task_type import TaskType  # noqa: F401
 from src.environment.models.Environment_status import EnvironmentStatus  # noqa: F401
 from src.dataset.models.dataset import Dataset  # noqa: F401
+from src.dataset.models.cleaning_config import CleaningConfig  # noqa: F401
+from src.dataset.models.cleaned_dataset import CleanedDataset  # noqa: F401
 
 # =========================
 # IMPORT MODELS (IMPORTANT)
