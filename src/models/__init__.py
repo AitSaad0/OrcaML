@@ -10,3 +10,7 @@ from src.dataset.models.dataset import Dataset # noqa: F401
 #from src.deployments.models.model_artifact import ModelArtifact # noqa: F401
 from src.dataset.models.cleaning_config import CleaningConfig  # noqa: F401
 from src.dataset.models.cleaned_dataset import CleanedDataset  # noqa: F401
+from src.deployments.models.deployment import Deployment # noqa: F401
+from src.deployments.models.enums import DeploymentStatus   # noqa: F401
+from src.deployments.models.model_artifact import ModelArtifact # noqa: F401
+from src.runs.models.run import RunStatus, Algorithm # noqa: F401
