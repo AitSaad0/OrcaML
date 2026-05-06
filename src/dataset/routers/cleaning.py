@@ -9,8 +9,7 @@ from src.dataset.services import cleaning_config_service as service
 from src.dataset.schemas.cleaning_config import CleaningConfigCreate, CleaningConfigResponse
 from src.dataset.schemas.cleaned_dataset import CleanedDatasetResponse
 
-router = APIRouter(prefix="/environments/{env_id}/cleaning", tags=["cleaning"])
-
+router = APIRouter(prefix="/cleaning/{env_id}", tags=["cleaning"])
 
 @router.post("/config", response_model=CleaningConfigResponse, status_code=status.HTTP_201_CREATED)
 def create_cleaning_config(

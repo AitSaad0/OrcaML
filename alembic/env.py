@@ -12,12 +12,6 @@ from src.config.config import settings
 
 # --- IMPORT OBLIGATOIRE ---
 # Si tu n'importes pas les classes ici, Alembic ne créera RIEN
-from src.auth.models.user import User
-from src.project.models.project import Project
-from src.environment.models.Environment import Environment
-from src.dataset.models.dataset import Dataset
-from src.dataset.models.cleaning_config import CleaningConfig
-from src.dataset.models.cleaned_dataset import CleanedDataset
 
 config = context.config
 if config.config_file_name is not None:

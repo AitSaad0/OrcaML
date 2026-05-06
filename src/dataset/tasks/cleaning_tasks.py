@@ -9,7 +9,7 @@ from src.config.db import SessionLocal
 from src.config.config import settings
 from src.dataset.models.cleaning_config import CleaningConfig
 from src.dataset.models.cleaned_dataset import CleanedDataset
-from src.dataset.cleaning_service import apply_cleaning
+from src.dataset.services.cleaning_service import apply_cleaning
 
 
 def get_s3_client():

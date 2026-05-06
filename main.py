@@ -6,6 +6,7 @@ from src.environment.routes.environment_routes import router as environments_rou
 from src.runs.routers.run import router as runs_router
 from src.dataset.routers.dataset import router as dataset_router
 from src.deployments.routers.deployment_routes import router as deployments_router
+from src.dataset.routers.cleaning import router as cleaning_router
 
 from src.models import *  # noqa: F401, F403
 
@@ -18,6 +19,7 @@ app.include_router(runs_router)
 app.include_router(environments_router)
 app.include_router(dataset_router)
 app.include_router(deployments_router)
+app.include_router(cleaning_router)
 
 @app.get("/health")
 def health():
