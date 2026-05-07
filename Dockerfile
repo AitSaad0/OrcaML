@@ -10,25 +10,10 @@ RUN apt-get update && apt-get install -y \
     build-essential \
     && rm -rf /var/lib/apt/lists/*
 
-# 👉 copier fichiers séparés
-COPY requirements-base.txt .
-COPY requirements-auth.txt .
-COPY requirements-worker.txt .
-COPY requirements-cloud.txt .
-COPY requirements-ml.txt .
-COPY requirements-dev.txt .
+COPY requirements.txt .
 
-RUN pip install --no-cache-dir --default-timeout=1000 --prefix=/install -r requirements-base.txt
+RUN pip --disable-pip-version-check --timeout 120 --retries 5 install --no-cache-dir --prefix=/install -r requirements.txt
 
-RUN pip install --no-cache-dir --default-timeout=1000 --prefix=/install -r requirements-auth.txt
-
-RUN pip install --no-cache-dir --default-timeout=1000 --prefix=/install -r requirements-worker.txt
-
-RUN pip install --no-cache-dir --default-timeout=1000 --prefix=/install -r requirements-cloud.txt
-
-RUN pip install --no-cache-dir --default-timeout=1000 --prefix=/install -r requirements-ml.txt
-
-RUN pip install --no-cache-dir --default-timeout=1000 --prefix=/install -r requirements-dev.txt
 
 # -------- STAGE 2: Final --------
 FROM python:3.11-slim
