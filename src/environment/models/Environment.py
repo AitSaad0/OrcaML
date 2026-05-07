@@ -28,6 +28,9 @@ class Environment(Base):
 
     models = relationship("ModelArtifact", back_populates="environment", cascade="all, delete-orphan")
 
+    cleaning_config  = relationship("CleaningConfig",  back_populates="environment", uselist=False)
+    cleaned_datasets = relationship("CleanedDataset",  back_populates="environment")
+
     def __repr__(self):
         return f"<Environment id={self.id} name={self.name}>"
 # patch: missing back_populates for ModelArtifact
