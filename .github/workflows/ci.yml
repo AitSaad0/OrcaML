@@ -72,8 +72,16 @@ jobs:
           echo "✅ Single head — no conflict"
       - name: Apply migrations
         run: alembic upgrade head
-      - name: Check DB is up to date
-        run: alembic check
+      - name: Check DB is up to date  # ← seul step modifié
+        run: |
+          result=$(alembic current 2>&1)
+          echo "$result"
+          if echo "$result" | grep -q "(head)"; then
+            echo "✅ DB is at head"
+          else
+            echo "❌ DB is not at head"
+            exit 1
+          fi
 
   docker:
     needs: test
