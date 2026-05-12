@@ -23,13 +23,28 @@ class Environment(Base):
     project = relationship("Project", back_populates="environments")
 
     runs = relationship("Run", back_populates="environment", cascade="all, delete-orphan")
-    datasets = relationship("Dataset", back_populates="environment")
+    datasets = relationship(
+    "Dataset",
+    back_populates="environment",
+    cascade="all, delete-orphan",
+    passive_deletes=True,
+)
     deployments = relationship("Deployment", back_populates="environment", cascade="all, delete-orphan")
 
     models = relationship("ModelArtifact", back_populates="environment", cascade="all, delete-orphan")
 
-    cleaning_config  = relationship("CleaningConfig",  back_populates="environment", uselist=False)
-    cleaned_datasets = relationship("CleanedDataset",  back_populates="environment")
+    cleaning_config = relationship(
+    "CleaningConfig",
+    back_populates="environment",
+    cascade="all, delete-orphan",  # ← SQLAlchemy DELETE au lieu de SET NULL
+    passive_deletes=True,           # ← laisse PostgreSQL gérer si ondelete=CASCADE en DB
+)
+    cleaned_datasets = relationship(
+    "CleanedDataset",
+    back_populates="environment",
+    cascade="all, delete-orphan",
+    passive_deletes=True,
+)
 
     def __repr__(self):
         return f"<Environment id={self.id} name={self.name}>"

@@ -106,7 +106,7 @@ def delete_environment(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Environment '{environment_id}' not found.",
         )
-
+    return {"message": "Environment deleted successfully"}
 
 @router.delete("/", status_code=status.HTTP_200_OK)
 def delete_all_environments(
