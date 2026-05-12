@@ -10,7 +10,15 @@ RUN apt-get update && apt-get install -y \
     build-essential \
     && rm -rf /var/lib/apt/lists/*
 
-COPY requirements.txt .
+# ✅ CORRECTION : Copier TOUS les requirements
+COPY requirements.txt \
+     requirements-base.txt \
+     requirements-auth.txt \
+     requirements-worker.txt \
+     requirements-cloud.txt \
+     requirements-ml.txt \
+     requirements-dev.txt \
+     ./
 
 RUN pip --disable-pip-version-check --timeout 120 --retries 5 install --no-cache-dir --prefix=/install -r requirements.txt
 
