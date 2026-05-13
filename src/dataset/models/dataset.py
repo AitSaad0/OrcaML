@@ -1,4 +1,4 @@
-from sqlalchemy import Column, String, Integer, DateTime, ForeignKey
+from sqlalchemy import Column, String, Integer, DateTime, ForeignKey,UniqueConstraint
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import relationship
 from src.config.db import Base
@@ -15,6 +15,10 @@ class Dataset(Base):
     env_id      = Column(UUID(as_uuid=True), ForeignKey("environments.id"), nullable=False)
     uploaded_at = Column(DateTime, default=datetime.utcnow)
     environment = relationship("Environment", back_populates="datasets") 
+
+    __table_args__ = (
+        UniqueConstraint("env_id", name="uq_datasets_env_id"),
+    )
 
     def __repr__(self):
         return f"<Dataset id={self.id} name={self.name}>"

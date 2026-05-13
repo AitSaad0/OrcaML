@@ -70,6 +70,7 @@ def upgrade() -> None:
     op.drop_constraint(op.f('users_email_key'), 'users', type_='unique')
     op.create_index(op.f('ix_users_email'), 'users', ['email'], unique=True)
     op.drop_column('users', 'hashed_password')
+    op.create_unique_constraint("uq_datasets_env_id", "datasets", ["env_id"])
 
 def downgrade() -> None:
     op.add_column('users', sa.Column('hashed_password', sa.VARCHAR(), autoincrement=False, nullable=False))
@@ -100,8 +101,8 @@ def downgrade() -> None:
     op.drop_column('cleaned_datasets', 'columns_dropped')
     op.drop_column('cleaned_datasets', 'rows_after')
     op.drop_column('cleaned_datasets', 'rows_before')
+    op.drop_constraint("uq_datasets_env_id", "datasets", type_="unique")
     op.drop_table('datasets')
-
     # Drop enum types last
     op.execute("DROP TYPE IF EXISTS missingstrategy")
     op.execute("DROP TYPE IF EXISTS encodingmethod")
