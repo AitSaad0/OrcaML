@@ -8,10 +8,10 @@ from src.environment.schemas.environment_schemas import (
     EnvironmentUpdateResponse,
     EnvironmentListResponse,
 )
+from src.dataset.services.r2_service import delete_from_r2
 
 
 def _resolve_unique_name(base_name: str, project_id: uuid.UUID, db: Session) -> str:
-    """Append (1), (2), ... if the name already exists in this project."""
     if not db.query(Environment).filter(
         Environment.project_id == project_id,
         Environment.name == base_name
@@ -29,7 +29,6 @@ def _resolve_unique_name(base_name: str, project_id: uuid.UUID, db: Session) -> 
 
 
 def _get_or_none(environment_id: uuid.UUID, project_id: uuid.UUID, db: Session) -> Environment | None:
-    """Base fetch — scoped to project. Used internally by all operations."""
     return db.query(Environment).filter(
         Environment.id == environment_id,
         Environment.project_id == project_id,
@@ -95,7 +94,6 @@ def list_environments(
     )
 
 
-
 def update_environment(
     environment_id: uuid.UUID,
     body: EnvironmentUpdateRequest,
@@ -125,25 +123,46 @@ def delete_environment(
     project_id: uuid.UUID,
     db: Session,
 ) -> bool:
-    """Returns True if deleted, False if not found."""
     environment = _get_or_none(environment_id, project_id, db)
     if environment is None:
         return False
+
+    # 1. Nettoyer les fichiers bruts sur R2
+    for dataset in environment.datasets:
+        if dataset.r2_path:
+            delete_from_r2(dataset.r2_path)
+
+    # 2. Nettoyer les fichiers nettoyés sur R2
+    for cleaned in environment.cleaned_datasets:
+        if cleaned.file_path:
+            delete_from_r2(cleaned.file_path)
+
+    # 3. Supprimer en DB
     db.delete(environment)
     db.commit()
     return True
-
 
 
 def delete_all_environments(
     project_id: uuid.UUID,
     db: Session,
 ) -> int:
-    """Bulk delete. Returns count of deleted rows."""
-    deleted = (
+    environments = (
         db.query(Environment)
         .filter(Environment.project_id == project_id)
-        .delete(synchronize_session=False)
+        .all()
     )
+
+    count = 0
+    for environment in environments:
+        for dataset in environment.datasets:
+            if dataset.r2_path:
+                delete_from_r2(dataset.r2_path)
+        for cleaned in environment.cleaned_datasets:
+            if cleaned.file_path:
+                delete_from_r2(cleaned.file_path)
+        db.delete(environment)
+        count += 1
+
     db.commit()
-    return deleted
+    return count

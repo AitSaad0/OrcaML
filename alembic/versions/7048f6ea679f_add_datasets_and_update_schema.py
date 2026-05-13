@@ -19,13 +19,45 @@ depends_on: Union[str, Sequence[str], None] = None
 
 
 def upgrade() -> None:
-    # Create enum types first
-    op.execute("CREATE TYPE missingstrategy AS ENUM ('DROP_ROWS', 'DROP_COLUMN', 'MEAN', 'MEDIAN', 'MODE', 'CONSTANT', 'FORWARD_FILL')")
-    op.execute("CREATE TYPE encodingmethod AS ENUM ('LABEL', 'ONE_HOT', 'ORDINAL', 'BINARY')")
-    op.execute("CREATE TYPE scalingmethod AS ENUM ('MIN_MAX', 'STANDARD', 'ROBUST', 'LOG')")
-    op.execute("CREATE TYPE cleaningversion AS ENUM ('V1', 'V2', 'V3')")
-    op.execute("CREATE TYPE tasktype AS ENUM ('CLASSIFICATION', 'REGRESSION')")
-    op.execute("CREATE TYPE environmentstatus AS ENUM ('PENDING', 'RUNNING', 'COMPLETED', 'FAILED', 'CANCELED')")
+    # Créer les enums de façon sécurisée
+    op.execute("""
+        DO $$ BEGIN
+            CREATE TYPE missingstrategy AS ENUM ('DROP_ROWS', 'DROP_COLUMN', 'MEAN', 'MEDIAN', 'MODE', 'CONSTANT', 'FORWARD_FILL');
+        EXCEPTION WHEN duplicate_object THEN null;
+        END $$;
+    """)
+    op.execute("""
+        DO $$ BEGIN
+            CREATE TYPE encodingmethod AS ENUM ('LABEL', 'ONE_HOT', 'ORDINAL', 'BINARY');
+        EXCEPTION WHEN duplicate_object THEN null;
+        END $$;
+    """)
+    op.execute("""
+        DO $$ BEGIN
+            CREATE TYPE scalingmethod AS ENUM ('MIN_MAX', 'STANDARD', 'ROBUST', 'LOG');
+        EXCEPTION WHEN duplicate_object THEN null;
+        END $$;
+    """)
+    op.execute("""
+        DO $$ BEGIN
+            CREATE TYPE cleaningversion AS ENUM ('V1', 'V2', 'V3');
+        EXCEPTION WHEN duplicate_object THEN null;
+        END $$;
+    """)
+    op.execute("""
+        DO $$ BEGIN
+            CREATE TYPE tasktype AS ENUM ('CLASSIFICATION', 'REGRESSION');
+        EXCEPTION WHEN duplicate_object THEN null;
+        END $$;
+    """)
+    op.execute("""
+        DO $$ BEGIN
+            CREATE TYPE environmentstatus AS ENUM ('PENDING', 'RUNNING', 'COMPLETED', 'FAILED', 'CANCELED');
+        EXCEPTION WHEN duplicate_object THEN null;
+        END $$;
+    """)
+
+    # Le reste du fichier reste identique...
 
     # Alter enum columns via raw SQL (requires USING cast)
     op.execute("ALTER TABLE cleaning_configs ALTER COLUMN missing_strategy TYPE missingstrategy USING missing_strategy::missingstrategy")
@@ -109,3 +141,4 @@ def downgrade() -> None:
     op.execute("DROP TYPE IF EXISTS cleaningversion")
     op.execute("DROP TYPE IF EXISTS tasktype")
     op.execute("DROP TYPE IF EXISTS environmentstatus")
+    

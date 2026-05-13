@@ -8,7 +8,10 @@ celery = Celery(
     broker=settings.CELERY_BROKER_URL, 
     backend=settings.CELERY_RESULT_BACKEND,
     # Indique à Celery où trouver les définitions des tâches
-    include=["src.runs.tasks.run_tasks"], 
+    include=[
+    "src.runs.tasks.run_tasks",
+    "src.dataset.tasks.cleaning_tasks",  # ← AJOUTER
+]
 )
 
 celery.conf.update(
