@@ -18,7 +18,11 @@ from src.environment.models.Environment import Environment  # noqa: F401
 from src.dataset.models.dataset import Dataset  # noqa: F401
 from src.dataset.models.cleaning_config import CleaningConfig  # noqa: F401
 from src.dataset.models.cleaned_dataset import CleanedDataset  # noqa: F401
-
+from src.runs.models.run import Run  # noqa: F401
+from src.runs.models.run import TrainingConfig # noqa: F401
+from src.deployments.models.model_artifact import ModelArtifact  # noqa: F401
+from src.deployments.models.deployment import Deployment  # noqa: F401
+from src.deployments.models.prediction import Prediction  # noqa: F401
 config = context.config
 
 if config.config_file_name is not None:

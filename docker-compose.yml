@@ -62,9 +62,9 @@ services:
       MLFLOW_TRACKING_URI: http://mlflow:5000
     volumes:
       - .:/app
-      - /var/run/docker.sock:/var/run/docker.sock 
+      - /var/run/docker.sock:/var/run/docker.sock
       - models_data:/app/models
-      - mlflow_data:/mlflow  
+      - mlflow_data:/mlflow
     ports:
       - "8000:8000"
     networks:
@@ -93,7 +93,7 @@ services:
     volumes:
       - .:/app
       - models_data:/app/models
-
+      - mlflow_data:/mlflow
     networks:
       - orcaml_network
     depends_on:
@@ -112,4 +112,4 @@ networks:
 volumes:
   postgres_data:
   mlflow_data:
-  models_data:        
+  models_data:

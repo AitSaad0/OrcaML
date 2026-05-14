@@ -13,7 +13,11 @@ class CleaningConfig(Base):
     __tablename__ = "cleaning_configs"
 
     id             = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    environment_id = Column(UUID(as_uuid=True), ForeignKey("environments.id"), nullable=False)
+    environment_id = Column(                                        # ← une seule fois
+        UUID(as_uuid=True),
+        ForeignKey("environments.id", ondelete="CASCADE"),          # ← cascade ajouté ici
+        nullable=False
+    )
 
     # V1 — must have
     missing_strategy  = Column(SAEnum(MissingStrategy), default=MissingStrategy.MEDIAN, nullable=False)
@@ -26,7 +30,7 @@ class CleaningConfig(Base):
     created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
 
     # relationships
-    environment   = relationship("Environment", back_populates="cleaning_config")
+    environment      = relationship("Environment", back_populates="cleaning_config")
     cleaned_datasets = relationship("CleanedDataset", back_populates="cleaning_config")
 
     def __repr__(self):
