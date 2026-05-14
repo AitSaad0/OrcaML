@@ -14,7 +14,7 @@ from sqlalchemy.orm import relationship
 
 from src.config.db import Base
 from src.deployments.models.enums import DeploymentStatus
-
+from src.deployments.models.prediction import Prediction
 
 class Deployment(Base):
     __tablename__ = "deployments"
@@ -65,3 +65,4 @@ class Deployment(Base):
     # Relationships
     model       = relationship("ModelArtifact", back_populates="deployments")
     environment = relationship("Environment", back_populates="deployments")
+    predictions = relationship("Prediction", back_populates="deployment", cascade="all, delete-orphan")

@@ -301,6 +301,17 @@ async def predict(deployment_id: uuid.UUID, features: dict, db: Session) -> dict
 
     deployment.total_calls    += 1
     deployment.last_called_at  = datetime.now(timezone.utc)
+
+    # Stocker la prédiction en DB
+    from src.deployments.models.prediction import Prediction
+    prediction_record = Prediction(
+        deployment_id    = deployment_id,
+        input_features   = features,
+        prediction       = result.get("prediction", []),
+        prediction_label = result.get("prediction_label"),
+        confidence       = result.get("confidence"),
+    )
+    db.add(prediction_record)
     db.commit()
 
     return {
