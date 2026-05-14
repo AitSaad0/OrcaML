@@ -5,7 +5,7 @@ from unittest.mock import patch, MagicMock
 def env_id(create_environment):
     """Extrait l'ID de l'environnement généré par la fixture existante."""
     result = create_environment()
-    
+
     # Si le résultat est un tuple, on prend le premier élément
     if isinstance(result, tuple):
         env = result[0]
@@ -20,7 +20,7 @@ def env_id(create_environment):
     else:
         return str(env)  # Au cas où l'élément serait déjà l'ID direct (str ou UUID)
 
-        
+
 # ── helpers ────────────────────────────────────────────────────
 
 CSV_CONTENT = (
@@ -30,6 +30,8 @@ CSV_CONTENT = (
     b",Carol,45000\n"     # age missing
     b"25,Alice,50000\n"   # duplicate of row 1
 )
+
+
 
 def test_stats_success(client, auth_headers, env_id):
     """Upload CSV then get stats — check numerical and categorical columns."""
@@ -80,6 +82,18 @@ def test_stats_success(client, auth_headers, env_id):
     assert name_col["unique_count"]  is not None
     assert name_col["top_value"]     == "Alice"  # appears twice
     assert name_col["top_frequency"] == 2
+    # Check histogram exists for numerical columns
+    assert age_col.get("histogram") is not None
+    assert isinstance(age_col["histogram"], list)
+
+    # Check bar_chart exists for categorical columns
+    assert name_col.get("bar_chart") is not None
+    assert isinstance(name_col["bar_chart"], list)
+    assert any(entry["label"] == "Alice" for entry in name_col["bar_chart"])
+
+    # Check chart_missing at top level
+    assert body.get("chart_missing") is not None
+    assert isinstance(body["chart_missing"], list)
 
 
 def test_stats_requires_auth(client):
