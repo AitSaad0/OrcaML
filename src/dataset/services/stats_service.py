@@ -14,6 +14,26 @@ def get_s3_client():
         region_name="auto",
     )
 
+def _build_histogram(series: pd.Series, bins: int = 10) -> list:
+    series = series.dropna()
+    if series.empty:
+        return []
+    counts, edges = pd.cut(series, bins=bins, retbins=True, include_lowest=True)
+    freq = counts.value_counts(sort=False)
+    return [
+        {"bin_start": round(float(i.left), 4), "bin_end": round(float(i.right), 4), "count": int(c)}
+        for i, c in freq.items()
+    ]
+
+def _build_bar(series: pd.Series, top_n: int = 10) -> list:
+    vc = series.value_counts().head(top_n)
+    return [{"label": str(l), "count": int(c)} for l, c in vc.items()]
+
+def _build_missing_bars(df: pd.DataFrame) -> list:
+    return [
+        {"label": col, "count": round(float(df[col].isna().mean() * 100), 2)}
+        for col in df.columns if df[col].isna().any()
+    ]
 
 def generate_stats(r2_path: str, dataset_id: str) -> DataStatsResponse:
     """
