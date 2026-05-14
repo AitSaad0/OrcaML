@@ -294,9 +294,8 @@ def test_get_best_auto_run(db_session, create_environment):
 
 
 # ─── Best Auto Run — Régression ──────────────────────────────
-
-def test_get_best_auto_run_regression_not_returned_by_f1(db_session, create_environment):  # ← NOUVEAU
-    """Un run régression (f1=None) ne doit pas apparaître dans best_auto (f1 based)"""
+def test_get_best_auto_run_regression_returned_by_r2(db_session, create_environment):
+    """Un run régression (f1=None, r2=0.87) doit être retourné via fallback r2"""
     env_id = _extract_env_id(create_environment)
 
     regression_run = Run(
@@ -305,7 +304,7 @@ def test_get_best_auto_run_regression_not_returned_by_f1(db_session, create_envi
         algorithm=Algorithm.XGBOOST,
         status=RunStatus.COMPLETED,
         is_manual=False,
-        f1_score=None,     # régression → pas de f1
+        f1_score=None,
         rmse=0.45,
         mae=0.32,
         r2=0.87,
@@ -324,9 +323,10 @@ def test_get_best_auto_run_regression_not_returned_by_f1(db_session, create_envi
     db_session.commit()
 
     best = RunService.get_best_auto_run(env_id, db_session)
-    assert best is None   # f1_score is None → pas retourné
-
-
+    assert best is not None
+    assert best.r2 == pytest.approx(0.87)
+    assert best.f1_score is None
+    
 def test_run_regression_metrics_stored(db_session, create_environment):    # ← NOUVEAU
     """Les métriques régression sont bien stockées dans le Run"""
     env_id = _extract_env_id(create_environment)
