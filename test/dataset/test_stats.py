@@ -4,7 +4,7 @@ from unittest.mock import patch, MagicMock
 @pytest.fixture
 def env_id(create_environment):
     """Extrait l'ID de l'environnement généré par la fixture existante."""
-    result = create_environment
+    result = create_environment()
 
     # Si le résultat est un tuple, on prend le premier élément
     if isinstance(result, tuple):
