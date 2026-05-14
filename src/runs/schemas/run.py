@@ -255,43 +255,6 @@ class BestAutoRunResponse(BaseModel):
     model_config = {"from_attributes": True}
 
 
-class RunPredictRequest(BaseModel):
-    """Corps de requête pour POST /{run_id}/predict.
-
-    Les features doivent être fournies sous forme de dict avec les noms
-    de colonnes BRUTES (non nettoyées), exactement comme dans le CSV original
-    avant cleaning. Le service applique automatiquement le même pipeline de
-    cleaning qu'à l'entraînement (encoding, scaling, alignement des colonnes).
-
-    Exemple pour un dataset avec colonnes [age, city, salary] et target=salary :
-        {
-            "features": {
-                "age":  32,
-                "city": "Paris"
-            }
-        }
-    Ne pas inclure la colonne target — elle est exclue automatiquement.
-    """
-
-    features: Dict[str, Any] = Field(
-        description="Features brutes avec noms de colonnes (hors target_column)."
-    )
-
-
-class RunPredictResponse(BaseModel):
-    """Réponse pour POST /{run_id}/predict.
-
-    `prediction` est une liste car certains modèles peuvent retourner
-    plusieurs valeurs (ex. prédiction multi-label à l'avenir).
-    `prediction_label` est la représentation string du premier résultat,
-    utile pour l'affichage côté client sans parsing supplémentaire.
-    """
-
-    run_id:           str
-    algorithm:        str
-    prediction:       list           # Ex: [1] pour classification, [245000.5] pour régression
-    prediction_label: Optional[str]  # str(prediction[0]) — null si prediction est vide
-
 
 class RunPredictRequest(BaseModel):
     """Corps de requête pour POST /{run_id}/predict.

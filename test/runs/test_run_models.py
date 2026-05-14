@@ -1,5 +1,4 @@
 from uuid import uuid4
-import pytest
 
 from src.runs.models.run import Run, RunStatus, Algorithm, TrainingConfig, HP_BOUNDS
 from src.runs.services.run_service import _sample_hyperparameters
