@@ -8,10 +8,22 @@ from src.dataset.models.dataset import Dataset
 from src.dataset.services import r2_service
 
 
+
+
+
+
+
 def upload_dataset(file: UploadFile, env_id: UUID, db: Session) -> Dataset:
     # ── Step 1: Check file extension ────────────────────────────
     if not file.filename.endswith(".csv"):
         raise HTTPException(status_code=400, detail="Only CSV files are allowed")
+    # ── Step 2: Check one dataset per environment ────────────────
+    existing = db.query(Dataset).filter(Dataset.env_id == env_id).first()
+    if existing:
+        raise HTTPException(
+           status_code=status.HTTP_409_CONFLICT,
+           detail="This environment already has a dataset. Delete it before uploading a new one."
+    )
 
     # ── Step 2: Read first bytes ─────────────────────────────────
     header = file.file.read(5)
