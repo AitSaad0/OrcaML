@@ -57,9 +57,10 @@ class EnvironmentCreateResponse(EnvironmentBase):
     id: uuid.UUID
     project_id: uuid.UUID
     created_at: datetime
+    total_runs: int = 0
+    total_deployments: int = 0
 
     model_config = {"from_attributes": True}
-
 
 class EnvironmentUpdateResponse(EnvironmentBase):
     id: uuid.UUID
