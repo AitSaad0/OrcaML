@@ -1,5 +1,5 @@
 import uuid
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 from src.environment.models.Environment import Environment
 from src.environment.schemas.environment_schemas import (
     EnvironmentCreateRequest,
@@ -77,22 +77,29 @@ def get_environment_by_name(
         return None
     return EnvironmentCreateResponse.model_validate(environment)
 
-
 def list_environments(
     project_id: uuid.UUID,
     db: Session,
 ) -> EnvironmentListResponse:
     environments = (
         db.query(Environment)
+        .options(
+            joinedload(Environment.runs),
+            joinedload(Environment.deployments),
+        )
         .filter(Environment.project_id == project_id)
         .order_by(Environment.created_at.asc())
         .all()
     )
-    return EnvironmentListResponse(
-        environments=[EnvironmentCreateResponse.model_validate(e) for e in environments],
-        total=len(environments),
-    )
 
+    results = []
+    for env in environments:
+        data = EnvironmentCreateResponse.model_validate(env)
+        data.total_runs = len(env.runs)
+        data.total_deployments = len(env.deployments)
+        results.append(data)
+
+    return EnvironmentListResponse(environments=results, total=len(results))
 
 def update_environment(
     environment_id: uuid.UUID,
