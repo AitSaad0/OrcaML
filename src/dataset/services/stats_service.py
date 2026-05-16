@@ -14,6 +14,28 @@ def get_s3_client():
         region_name="auto",
     )
 
+def _build_histogram(series: pd.Series, bins: int = 10) -> list:
+    series = series.dropna()
+    if series.empty:
+        return []
+    counts, edges = pd.cut(series, bins=bins, retbins=True, include_lowest=True)
+    freq = counts.value_counts(sort=False)
+    return [
+        {"bin_start": round(float(i.left), 4), "bin_end": round(float(i.right), 4), "count": int(c)}
+        for i, c in freq.items()
+    ]
+
+def _build_bar(series: pd.Series, top_n: int = 10) -> list:
+    vc = series.value_counts().head(top_n)
+    return [
+        {"label": str(val), "count": int(c)} for val , c in vc.items()
+    ]
+
+def _build_missing_bars(df: pd.DataFrame) -> list:
+    return [
+        {"label": col, "count": round(float(df[col].isna().mean() * 100), 2)}
+        for col in df.columns if df[col].isna().any()
+    ]
 
 def generate_stats(r2_path: str, dataset_id: str) -> DataStatsResponse:
     """
@@ -36,8 +58,7 @@ def generate_stats(r2_path: str, dataset_id: str) -> DataStatsResponse:
     # select_dtypes(include="number") → only int64, float64 columns
     # select_dtypes(include="object") → only string/text columns
     num_cols = df.select_dtypes(include="number").columns.tolist()
-    cat_cols = df.select_dtypes(include="object").columns.tolist()
-
+    cat_cols = [c for c in df.columns if c not in num_cols]  # everything else
     # ── Step 3: Count duplicates ─────────────────────────────────
     # df.duplicated() → True/False per row (True = duplicate)
     # .sum()          → count of True = count of duplicates
@@ -67,6 +88,7 @@ def generate_stats(r2_path: str, dataset_id: str) -> DataStatsResponse:
                 std             = round(float(df[col].std()),    4) if not df[col].isna().all() else None,
                 min             = round(float(df[col].min()),    4) if not df[col].isna().all() else None,
                 max             = round(float(df[col].max()),    4) if not df[col].isna().all() else None,
+                histogram=_build_histogram(df[col]),
             ))
 
         else:
@@ -87,6 +109,7 @@ def generate_stats(r2_path: str, dataset_id: str) -> DataStatsResponse:
                 unique_count    = int(df[col].nunique()),  # nunique() = number of unique values
                 top_value       = top_value,
                 top_frequency   = top_frequency,
+                bar_chart=_build_bar(df[col]), 
             ))
 
     # ── Step 5: Return ───────────────────────────────────────────
@@ -98,4 +121,5 @@ def generate_stats(r2_path: str, dataset_id: str) -> DataStatsResponse:
         categorical_cols = len(cat_cols),
         duplicate_rows   = duplicate_rows,
         columns          = columns,
+        chart_missing=_build_missing_bars(df), 
     )
