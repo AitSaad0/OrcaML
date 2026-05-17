@@ -3,6 +3,7 @@ from datetime import datetime, timezone
 
 from sqlalchemy import (
     Column,
+    Float,
     String,
     Integer,
     DateTime,
@@ -51,6 +52,7 @@ class Deployment(Base):
     # Observability
     total_calls    = Column(Integer, default=0, nullable=False)
     last_called_at = Column(DateTime(timezone=True), nullable=True)
+    avg_latency_ms = Column(Float, nullable=True)
 
     # Timestamps
     created_at = Column(
