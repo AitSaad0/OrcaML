@@ -1,5 +1,6 @@
 import logging
 import socket
+import time
 import uuid
 from datetime import datetime, timezone
 from io import BytesIO
@@ -64,14 +65,6 @@ def _find_free_port(db: Session) -> int:
 
 
 def _prepare_features(features: dict, environment_id: uuid.UUID, db: Session) -> list[float]:
-    """
-    Fix Bug 1 — scaler fitté sur 1 seule ligne :
-    On concatène le dataset brut + la nouvelle ligne avant apply_cleaning()
-    pour que le scaler soit fitté sur la vraie distribution du dataset.
-    On prend ensuite uniquement la dernière ligne (= notre prédiction).
-    """
-
-    # 1. Environment → target_column
     environment = db.execute(
         select(Environment).where(Environment.id == environment_id)
     ).scalar_one_or_none()
@@ -79,7 +72,6 @@ def _prepare_features(features: dict, environment_id: uuid.UUID, db: Session) ->
         raise ValueError(f"Environment {environment_id} introuvable.")
     target_column = environment.target_column
 
-    # 2. CleanedDataset → colonnes de référence
     cleaned_dataset = db.execute(
         select(CleanedDataset)
         .where(CleanedDataset.environment_id == environment_id, CleanedDataset.status == "ready")
@@ -89,7 +81,6 @@ def _prepare_features(features: dict, environment_id: uuid.UUID, db: Session) ->
     if not cleaned_dataset:
         raise ValueError(f"Aucun CleanedDataset 'ready' pour l'environment {environment_id}.")
 
-    # 3. CleaningConfig
     cleaning_config = db.execute(
         select(CleaningConfig)
         .where(CleaningConfig.environment_id == environment_id)
@@ -99,7 +90,6 @@ def _prepare_features(features: dict, environment_id: uuid.UUID, db: Session) ->
     if not cleaning_config:
         raise ValueError(f"Aucune CleaningConfig pour l'environment {environment_id}.")
 
-    # 4. Dataset brut → pour fitter le scaler sur la bonne distribution
     raw_dataset = db.execute(
         select(Dataset)
         .where(Dataset.env_id == environment_id)
@@ -109,18 +99,15 @@ def _prepare_features(features: dict, environment_id: uuid.UUID, db: Session) ->
     if not raw_dataset:
         raise ValueError(f"Aucun Dataset brut pour l'environment {environment_id}.")
 
-    # 5. Télécharger dataset brut + CleanedDataset depuis R2
     try:
         client_s3 = get_s3_client()
 
-        # Dataset brut — scaler fitté sur la vraie distribution
         buffer_raw = BytesIO()
         client_s3.download_fileobj(settings.R2_BUCKET_NAME, raw_dataset.r2_path, buffer_raw)
         buffer_raw.seek(0)
         df_raw = pd.read_csv(buffer_raw)
         logger.debug(f"Dataset brut chargé — {df_raw.shape[0]} lignes")
 
-        # CleanedDataset — colonnes de référence après one-hot
         buffer_clean = BytesIO()
         client_s3.download_fileobj(settings.R2_BUCKET_NAME, cleaned_dataset.file_path, buffer_clean)
         buffer_clean.seek(0)
@@ -131,26 +118,18 @@ def _prepare_features(features: dict, environment_id: uuid.UUID, db: Session) ->
     except Exception as e:
         raise RuntimeError(f"Impossible de charger les datasets depuis R2 : {e}")
 
-    # 6. Cleaning avec concat — fix scaler sur 1 ligne
     try:
         df_input = pd.DataFrame([features])
-        df_input[target_column] = 0  # target factice
+        df_input[target_column] = 0
 
-        # Concat dataset brut + nouvelle ligne
         df_combined = pd.concat([df_raw, df_input], ignore_index=True)
-
-        # Apply cleaning sur tout
-        df_cleaned = apply_cleaning(df_combined.copy(), cleaning_config, target_column)
-
-        # Prendre uniquement la dernière ligne = notre prédiction
-        df_cleaned = df_cleaned.iloc[[-1]]
+        df_cleaned  = apply_cleaning(df_combined.copy(), cleaning_config, target_column)
+        df_cleaned  = df_cleaned.iloc[[-1]]
 
         if target_column in df_cleaned.columns:
             df_cleaned = df_cleaned.drop(columns=[target_column])
 
-        # Fix one-hot
-        df_cleaned = df_cleaned.reindex(columns=expected_cols, fill_value=0)
-
+        df_cleaned    = df_cleaned.reindex(columns=expected_cols, fill_value=0)
         features_list = df_cleaned.values[0].tolist()
         logger.debug(f"Features nettoyées — {len(features_list)} valeurs")
         return features_list
@@ -288,10 +267,14 @@ async def predict(deployment_id: uuid.UUID, features: dict, db: Session) -> dict
 
     predict_url = f"http://{deployment.container_name}:8000/predict"
     try:
+        start = time.monotonic()
         async with httpx.AsyncClient(timeout=30.0) as client:
             response = await client.post(predict_url, json={"features": features_list})
             response.raise_for_status()
             result = response.json()
+        latency_ms = (time.monotonic() - start) * 1000
+        logger.debug(f"Predict latency: {latency_ms:.1f}ms")
+
     except httpx.TimeoutException:
         raise RuntimeError(f"Model container timed out — port {deployment.port}")
     except httpx.HTTPStatusError as e:
@@ -299,10 +282,18 @@ async def predict(deployment_id: uuid.UUID, features: dict, db: Session) -> dict
     except Exception as e:
         raise RuntimeError(f"Failed to reach model container: {e}")
 
+    # Update running average latency
+    if deployment.avg_latency_ms is None:
+        deployment.avg_latency_ms = latency_ms
+    else:
+        deployment.avg_latency_ms = (
+            (deployment.avg_latency_ms * deployment.total_calls + latency_ms)
+            / (deployment.total_calls + 1)
+        )
+
     deployment.total_calls    += 1
     deployment.last_called_at  = datetime.now(timezone.utc)
 
-    # Stocker la prédiction en DB
     from src.deployments.models.prediction import Prediction
     prediction_record = Prediction(
         deployment_id    = deployment_id,

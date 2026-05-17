@@ -62,7 +62,7 @@ class DeploymentResponse(BaseModel):
     created_at:     datetime
     deployed_at:    datetime | None
     stopped_at:     datetime | None
-
+    avg_latency_ms: float | None = None
     # Nested model info — useful for the frontend
     model: ModelArtifactResponse
 
