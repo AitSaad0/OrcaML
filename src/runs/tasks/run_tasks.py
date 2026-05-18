@@ -1,22 +1,5 @@
 """
 run_tasks.py — Tâche Celery d'entraînement ML.
-
-Ce module définit la tâche Celery `train_iris_run` (nom historique conservé
-pour la compatibilité avec les celery_task_id déjà en base).
-
-Flux de la tâche :
-    1.  Conversion run_id str → UUID
-    2.  Chargement Run + TrainingConfig depuis la DB
-    3.  Passage du Run à RUNNING
-    4.  Initialisation MLflow (tracking URI + experiment)
-    5.  Chargement du CleanedDataset depuis R2 → DataFrame
-    6.  Instanciation du modèle selon task_type (classification / régression)
-    7.  Logging des paramètres dans MLflow
-    8.  Entraînement : Cross-Validation OU Train/Test split
-    9.  Logging des métriques + sauvegarde du modèle dans MLflow
-    10. Mise à jour du Run en DB (COMPLETED + métriques)
-
-En cas d'erreur : Run marqué FAILED, session DB fermée proprement.
 """
 
 import uuid
@@ -29,10 +12,9 @@ from datetime import datetime, timezone
 from sqlalchemy.orm import Session
 from sqlalchemy import select, desc
 from sqlalchemy.orm import selectinload
-import src.models  # noqa: F401 — nécessaire pour que SQLAlchemy découvre tous les modèles
+import src.models  # noqa: F401
 
-# Imports ML
-from sklearn.model_selection import train_test_split, cross_val_score
+from sklearn.model_selection import train_test_split, cross_val_score, cross_validate
 from sklearn.metrics import (
     accuracy_score, precision_score, recall_score, f1_score,
     mean_squared_error, mean_absolute_error, r2_score,
@@ -55,24 +37,16 @@ from src.dataset.models.cleaned_dataset import CleanedDataset
 
 logger = logging.getLogger(__name__)
 
-
-# ---------------------------------------------------------------------------
-# Mappings algorithme → classe sklearn/xgboost
-# ---------------------------------------------------------------------------
-
-# Classification : chaque algorithme mappe vers sa classe Classifier
 CLASSIFICATION_MODEL_MAPPING = {
     Algorithm.LOGISTIC_REGRESSION: LogisticRegression,
     Algorithm.RANDOM_FOREST:       RandomForestClassifier,
     Algorithm.SVM:                 SVC,
     Algorithm.DECISION_TREE:       DecisionTreeClassifier,
-    Algorithm.LINEAR_REGRESSION:   RidgeClassifier,  # Ridge = version classification de LinReg
+    Algorithm.LINEAR_REGRESSION:   RidgeClassifier,
     Algorithm.KNN:                 KNeighborsClassifier,
     Algorithm.XGBOOST:             XGBClassifier,
 }
 
-# Régression : chaque algorithme mappe vers sa classe Regressor
-# Note : __import__ utilisé pour éviter des imports en tête de fichier trop longs
 REGRESSION_MODEL_MAPPING = {
     Algorithm.XGBOOST:           XGBRegressor,
     Algorithm.RANDOM_FOREST:     __import__("sklearn.ensemble",     fromlist=["RandomForestRegressor"]).RandomForestRegressor,
@@ -82,44 +56,19 @@ REGRESSION_MODEL_MAPPING = {
     Algorithm.KNN:               __import__("sklearn.neighbors",    fromlist=["KNeighborsRegressor"]).KNeighborsRegressor,
 }
 
-# KNN n'accepte pas random_state → on l'exclut du passage de ce paramètre
 ALGORITHMS_WITHOUT_RANDOM_STATE = {Algorithm.KNN}
 
 
-# ---------------------------------------------------------------------------
-# Tâche Celery principale
-# ---------------------------------------------------------------------------
-
 @celery.task(name="src.runs.tasks.run_tasks.train_iris_run", bind=True)
 def train_iris_run(self, run_id: str):
-    """Tâche Celery d'entraînement d'un modèle ML.
-
-    Nom historique 'train_iris_run' conservé pour la compatibilité avec les
-    celery_task_id déjà stockés en base. Le dataset Iris n'est plus utilisé
-    depuis Phase 3 — les données sont chargées depuis R2.
-
-    `bind=True` : donne accès à `self` (instance de la tâche Celery),
-    utile pour la révocation et le suivi d'état.
-
-    Args:
-        run_id: UUID du Run à entraîner, passé en string par Celery.
-
-    Returns:
-        Dict { ok, metrics, duration_seconds } en cas de succès.
-        Dict { ok, error } en cas d'échec.
-    """
     db: Session = SessionLocal()
 
     try:
-        # ── 1. Conversion STR → UUID ──────────────────────────────────────────
-        # Celery sérialise les arguments en JSON → run_id arrive comme string
         try:
             run_uuid = uuid.UUID(run_id)
         except ValueError:
             return {"ok": False, "error": f"Format UUID invalide: {run_id}"}
 
-        # ── 2. Chargement du Run et de sa TrainingConfig ──────────────────────
-        # selectinload évite une requête N+1 pour training_config
         run = db.execute(
             select(Run)
             .options(selectinload(Run.training_config))
@@ -129,19 +78,14 @@ def train_iris_run(self, run_id: str):
         if not run or not run.training_config:
             return {"ok": False, "error": "Run ou TrainingConfig introuvable"}
 
-        # ── 3. Passage à l'état RUNNING ───────────────────────────────────────
         run.status     = RunStatus.RUNNING
         run.started_at = datetime.now(timezone.utc)
         db.commit()
         logger.info(f"🚀 Début du Run {run_id} [{run.algorithm.value}]")
 
-        # ── 4. Initialisation MLflow ──────────────────────────────────────────
-        # Un experiment par environment pour isoler les runs dans l'UI MLflow
         mlflow.set_tracking_uri(settings.MLFLOW_TRACKING_URI)
         mlflow.set_experiment(f"Environment_{run.environment_id}")
 
-        # ── 5. Chargement du CleanedDataset depuis R2 ─────────────────────────
-        # Le worker charge les données en RAM (BytesIO) sans écrire sur disque
         environment = db.execute(
             select(Environment).where(Environment.id == run.environment_id)
         ).scalar_one_or_none()
@@ -153,7 +97,6 @@ def train_iris_run(self, run_id: str):
         task_type     = environment.task_type
         logger.info(f"✓ Environment chargé — target: '{target_column}' | task: {task_type.value}")
 
-        # Récupère le CleanedDataset le plus récent avec status='ready'
         cleaned_dataset = db.execute(
             select(CleanedDataset)
             .where(
@@ -172,7 +115,6 @@ def train_iris_run(self, run_id: str):
 
         logger.info(f"✓ CleanedDataset trouvé: {cleaned_dataset.id}")
 
-        # Téléchargement depuis R2 en mémoire (jamais écrit sur disque)
         client = get_s3_client()
         buffer = BytesIO()
         client.download_fileobj(settings.R2_BUCKET_NAME, cleaned_dataset.file_path, buffer)
@@ -184,18 +126,13 @@ def train_iris_run(self, run_id: str):
         if target_column not in df.columns:
             raise ValueError(f"Colonne cible '{target_column}' absente du dataset")
 
-        # Séparation features / target
         X = df.drop(columns=[target_column]).values
         y = df[target_column].values
         logger.info(f"✓ X: {X.shape}, y: {y.shape}")
 
         with mlflow.start_run(run_name=f"Run_{run.id}") as ml_run:
-            # Stocke le mlflow_run_id pour retrouver les artifacts à la prédiction
             run.mlflow_run_id = ml_run.info.run_id
 
-            # ── 6. Instanciation du modèle selon task_type ────────────────────
-            # Le même algorithme (ex. XGBOOST) mappe vers XGBClassifier ou XGBRegressor
-            # selon le task_type de l'environment
             if task_type == TaskType.CLASSIFICATION:
                 model_class = CLASSIFICATION_MODEL_MAPPING.get(run.algorithm)
             else:
@@ -209,7 +146,6 @@ def train_iris_run(self, run_id: str):
 
             hp = run.training_config.hyperparameters or {}
 
-            # KNN n'a pas de random_state → on ne le passe pas pour éviter une TypeError
             if run.algorithm not in ALGORITHMS_WITHOUT_RANDOM_STATE:
                 model = model_class(**hp, random_state=run.training_config.random_state or 42)
             else:
@@ -217,7 +153,6 @@ def train_iris_run(self, run_id: str):
 
             logger.info(f"✓ Modèle {run.algorithm.value} instancié [{task_type.value}]")
 
-            # ── 7. Logging des paramètres dans MLflow ─────────────────────────
             mlflow.log_params(hp)
             mlflow.log_param("algorithm",    run.algorithm.value)
             mlflow.log_param("task_type",    task_type.value)
@@ -228,43 +163,47 @@ def train_iris_run(self, run_id: str):
 
             # ── 8. Entraînement et Évaluation ─────────────────────────────────
             if run.training_config.cross_validation:
-                # ── Mode Cross-Validation ──────────────────────────────────────
-                # Évalue le modèle sur k folds sans split fixe train/test
-                # Plus robuste sur petits datasets mais plus lent
                 cv_folds = run.training_config.cv_folds or 5
 
                 if task_type == TaskType.CLASSIFICATION:
                     logger.info(f"Mode: Cross-validation classification ({cv_folds} folds)")
-                    scores = cross_val_score(model, X, y, cv=cv_folds, scoring="accuracy")
+                    cv_results = cross_validate(
+                        model, X, y,
+                        cv=cv_folds,
+                        scoring={
+                            "accuracy":  "accuracy",
+                            "f1":        "f1_weighted",
+                            "precision": "precision_weighted",
+                            "recall":    "recall_weighted",
+                        }
+                    )
                     metrics = {
-                        "accuracy":  float(scores.mean()),
-                        "precision": None,  # Non disponible en CV (nécessite y_pred)
-                        "recall":    None,
-                        "f1_score":  None,
+                        "accuracy":  float(cv_results["test_accuracy"].mean()),
+                        "f1_score":  float(cv_results["test_f1"].mean()),
+                        "precision": float(cv_results["test_precision"].mean()),
+                        "recall":    float(cv_results["test_recall"].mean()),
                     }
-                    logger.info(f"CV Accuracy: {scores.mean():.4f} ± {scores.std():.4f}")
+                    logger.info(
+                        f"CV Accuracy: {metrics['accuracy']:.4f}, F1: {metrics['f1_score']:.4f}"
+                    )
 
                 else:
                     logger.info(f"Mode: Cross-validation régression ({cv_folds} folds)")
                     scores = cross_val_score(model, X, y, cv=cv_folds, scoring="r2")
                     metrics = {
-                        "rmse": None,  # Non disponible en CV
+                        "rmse": None,
                         "mae":  None,
                         "r2":   float(scores.mean()),
                     }
                     logger.info(f"CV R2: {scores.mean():.4f} ± {scores.std():.4f}")
 
-                # Entraînement final sur tout le dataset après évaluation CV
                 model.fit(X, y)
 
             else:
-                # ── Mode Train/Test Split ──────────────────────────────────────
                 split_kwargs = {
                     "test_size":    run.training_config.test_size or 0.2,
                     "random_state": run.training_config.random_state or 42,
                 }
-                # stratify=y uniquement en classification pour préserver
-                # la distribution des classes dans train et test
                 if task_type == TaskType.CLASSIFICATION:
                     split_kwargs["stratify"] = y
 
@@ -278,8 +217,6 @@ def train_iris_run(self, run_id: str):
                     logger.info("Mode: Train/Test split classification")
                     metrics = {
                         "accuracy":  float(accuracy_score(y_test, y_pred)),
-                        # average="weighted" : pondère par le nombre d'exemples par classe
-                        # zero_division=0 : retourne 0 au lieu de lever une erreur si classe absente
                         "precision": float(precision_score(y_test, y_pred, average="weighted", zero_division=0)),
                         "recall":    float(recall_score(y_test, y_pred,    average="weighted", zero_division=0)),
                         "f1_score":  float(f1_score(y_test, y_pred,        average="weighted", zero_division=0)),
@@ -291,7 +228,6 @@ def train_iris_run(self, run_id: str):
                 else:
                     logger.info("Mode: Train/Test split régression")
                     metrics = {
-                        # ** 0.5 = racine carrée de la MSE → RMSE
                         "rmse": float(mean_squared_error(y_test, y_pred) ** 0.5),
                         "mae":  float(mean_absolute_error(y_test, y_pred)),
                         "r2":   float(r2_score(y_test, y_pred)),
@@ -301,24 +237,18 @@ def train_iris_run(self, run_id: str):
                         f"MAE={metrics['mae']:.4f}, R2={metrics['r2']:.4f}"
                     )
 
-            # ── 9. Logging MLflow + sauvegarde du modèle ──────────────────────
-            # Filtre les métriques None (ex. precision/recall en mode CV)
             mlflow.log_metrics({k: v for k, v in metrics.items() if v is not None})
 
             try:
-                # Sauvegarde le modèle fitté comme artifact MLflow
-                # Accessible via mlflow_run_id pour la prédiction et le déploiement
                 mlflow.sklearn.log_model(model, "model_artifact")
                 logger.info("✓ Modèle sauvegardé dans MLflow")
             except Exception as e:
                 logger.warning(f"Erreur sauvegarde modèle: {e}")
 
-            # ── 10. Mise à jour du Run en DB ──────────────────────────────────
             run.status           = RunStatus.COMPLETED
             run.finished_at      = datetime.now(timezone.utc)
             run.duration_seconds = (run.finished_at - run.started_at).total_seconds()
 
-            # Métriques mutuellement exclusives selon task_type
             if task_type == TaskType.CLASSIFICATION:
                 run.accuracy  = metrics.get("accuracy")
                 run.precision = metrics.get("precision")
@@ -338,7 +268,6 @@ def train_iris_run(self, run_id: str):
         logger.error(f"❌ Erreur Run {run_id}: {str(e)}", exc_info=True)
         db.rollback()
 
-        # Tentative de marquage FAILED même si une erreur inattendue s'est produite
         try:
             run_uuid = uuid.UUID(run_id)
             run_err  = db.execute(select(Run).where(Run.id == run_uuid)).scalar_one_or_none()
@@ -353,6 +282,5 @@ def train_iris_run(self, run_id: str):
         return {"ok": False, "error": str(e)}
 
     finally:
-        # La session DB est toujours fermée, même en cas d'erreur non catchée
         db.close()
         logger.debug("Session DB fermée")
