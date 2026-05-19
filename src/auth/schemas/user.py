@@ -32,7 +32,31 @@ class UserResponse(BaseModel):
     created_at: datetime
     model_config = {"from_attributes": True}
 
+class UpdateUserRequest(BaseModel):
+    full_name: str | None = None
+    email: EmailStr | None = None
+class UpdatePasswordRequest(BaseModel):
+    current_password: str
+    new_password: str
+    confirm_password: str
 
+    @field_validator("confirm_password")
+    @classmethod
+    def passwords_match(cls, v: str, info) -> str:
+        if info.data.get("new_password") != v:
+            raise ValueError("Passwords do not match")
+        return v
+
+    @field_validator("new_password")
+    @classmethod
+    def password_strength(cls, v: str) -> str:
+        if len(v) < 8:
+            raise ValueError("Password must be at least 8 characters")
+        if not any(c.isupper() for c in v):
+            raise ValueError("Password must contain at least one uppercase letter")
+        if not any(c.isdigit() for c in v):
+            raise ValueError("Password must contain at least one digit")
+        return v
 class TokenResponse(BaseModel):
     access_token: str
     token_type: str = "bearer"
