@@ -178,35 +178,26 @@ class RunResponse(BaseModel):
     training_config: Optional[TrainingConfigResponse] = None
 
     model_config = {"from_attributes": True}
-
-
 class RunListResponse(BaseModel):
-    """Réponse allégée pour GET / (liste de runs).
-
-    Exclut training_config et les métriques détaillées (precision, recall)
-    pour réduire la taille des réponses sur les listes potentiellement longues.
-    """
-
     id:             UUID
     environment_id: UUID
     algorithm:      Algorithm
     status:         RunStatus
+    is_manual:      bool = False  # ← ajout de la valeur par défaut
 
-    # Métriques résumées — classification
-    accuracy: Optional[float] = None
-    f1_score: Optional[float] = None
-
-    # Métriques résumées — régression
-    rmse: Optional[float] = None
-    mae:  Optional[float] = None
-    r2:   Optional[float] = None
+    accuracy:  Optional[float] = None
+    f1_score:  Optional[float] = None
+    precision: Optional[float] = None
+    recall:    Optional[float] = None
+    rmse:      Optional[float] = None
+    mae:       Optional[float] = None
+    r2:        Optional[float] = None
 
     duration_seconds: Optional[float] = None
     created_at:       datetime
     finished_at:      Optional[datetime] = None
-
+    training_config:  Optional[TrainingConfigResponse] = None
     model_config = {"from_attributes": True}
-
 
 class BatchRunResponse(BaseModel):
     """Réponse pour POST /batch et POST /auto.
