@@ -178,21 +178,20 @@ class RunResponse(BaseModel):
     training_config: Optional[TrainingConfigResponse] = None
 
     model_config = {"from_attributes": True}
-
 class RunListResponse(BaseModel):
     id:             UUID
     environment_id: UUID
     algorithm:      Algorithm
     status:         RunStatus
-    is_manual:      bool        
+    is_manual:      bool = False  # ← ajout de la valeur par défaut
 
-    accuracy: Optional[float] = None
-    f1_score: Optional[float] = None
-    precision: Optional[float] = None  # ← ajout
-    recall:    Optional[float] = None  # ← ajout
-    rmse: Optional[float] = None
-    mae:  Optional[float] = None
-    r2:   Optional[float] = None
+    accuracy:  Optional[float] = None
+    f1_score:  Optional[float] = None
+    precision: Optional[float] = None
+    recall:    Optional[float] = None
+    rmse:      Optional[float] = None
+    mae:       Optional[float] = None
+    r2:        Optional[float] = None
 
     duration_seconds: Optional[float] = None
     created_at:       datetime
