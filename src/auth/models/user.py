@@ -16,6 +16,6 @@ class User(Base):
     created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
     projects = relationship("Project", back_populates="owner")
     api_keys = relationship("ApiKey", back_populates="user", cascade="all, delete-orphan")
-
+    preferences = relationship("UserPreferences", back_populates="user", uselist=False)
     def __repr__(self):
         return f"<User id={self.id} email={self.email}>"

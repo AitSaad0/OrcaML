@@ -17,6 +17,9 @@ from collections import defaultdict
 from src.auth.models.api_keys import ApiKey
 from src.auth.schemas.api_key import ApiKeyCreate, ApiKeyResponse, ApiKeyCreatedResponse
 from src.auth.security.hashing import hash_password 
+from src.auth.models.user_preferences import UserPreferences
+from src.auth.schemas.preferences import PreferencesResponse, PreferencesUpdate
+from datetime import datetime, timezone
 router = APIRouter(prefix="/users", tags=["Users"])
 
 
@@ -164,3 +167,43 @@ def delete_api_key(
         raise HTTPException(status_code=404, detail="API key not found")
     db.delete(api_key)
     db.commit()
+    
+@router.get("/me/preferences", response_model=PreferencesResponse)
+def get_preferences(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    prefs = db.query(UserPreferences).filter(
+        UserPreferences.user_id == current_user.id
+    ).first()
+    if not prefs:
+        # Créer les préférences par défaut si elles n'existent pas
+        prefs = UserPreferences(user_id=current_user.id)
+        db.add(prefs)
+        db.commit()
+        db.refresh(prefs)
+    return prefs
+
+
+@router.patch("/me/preferences", response_model=PreferencesResponse)
+def update_preferences(
+    body: PreferencesUpdate,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    prefs = db.query(UserPreferences).filter(
+        UserPreferences.user_id == current_user.id
+    ).first()
+    if not prefs:
+        prefs = UserPreferences(user_id=current_user.id)
+        db.add(prefs)
+
+    if body.email_runs  is not None: prefs.email_runs  = body.email_runs
+    if body.deployments is not None: prefs.deployments = body.deployments
+    if body.weekly      is not None: prefs.weekly      = body.weekly
+    if body.security    is not None: prefs.security    = body.security
+    prefs.updated_at = datetime.now(timezone.utc)
+
+    db.commit()
+    db.refresh(prefs)
+    return prefs
