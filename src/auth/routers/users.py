@@ -20,6 +20,8 @@ from src.auth.security.hashing import hash_password
 from src.auth.models.user_preferences import UserPreferences
 from src.auth.schemas.preferences import PreferencesResponse, PreferencesUpdate
 from datetime import datetime, timezone
+from src.notifications.email_service import notify_security_event  # ← ajouté
+
 router = APIRouter(prefix="/users", tags=["Users"])
 
 
@@ -27,6 +29,7 @@ router = APIRouter(prefix="/users", tags=["Users"])
 def get_me(current_user: User = Depends(get_current_user)):
     """Return the profile of the currently logged-in user."""
     return current_user
+
 @router.patch("/me", response_model=UserResponse)
 def update_me(
     body: UpdateUserRequest,
@@ -41,6 +44,7 @@ def update_me(
     db.commit()
     db.refresh(current_user)
     return current_user
+
 @router.patch("/me/password", status_code=status.HTTP_200_OK)
 def update_password(
     body: UpdatePasswordRequest,
@@ -54,14 +58,14 @@ def update_password(
         )
     current_user.password_hash = hash_password(body.new_password)
     db.commit()
+    notify_security_event(db=db, user_id=current_user.id, event="password_changed")  # ← ajouté
     return {"message": "Password updated successfully"}
+
 @router.get("/me/stats")
 def get_my_stats(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    
-
     total_projects = db.query(Project).filter(
         Project.user_id == current_user.id
     ).count()
@@ -144,6 +148,7 @@ def create_api_key(
     db.add(api_key)
     db.commit()
     db.refresh(api_key)
+    notify_security_event(db=db, user_id=current_user.id, event="api_key_created")  # ← ajouté
     return ApiKeyCreatedResponse(
         id           = api_key.id,
         name         = api_key.name,
@@ -167,7 +172,8 @@ def delete_api_key(
         raise HTTPException(status_code=404, detail="API key not found")
     db.delete(api_key)
     db.commit()
-    
+    notify_security_event(db=db, user_id=current_user.id, event="api_key_deleted")  # ← ajouté
+
 @router.get("/me/preferences", response_model=PreferencesResponse)
 def get_preferences(
     current_user: User = Depends(get_current_user),
@@ -177,7 +183,6 @@ def get_preferences(
         UserPreferences.user_id == current_user.id
     ).first()
     if not prefs:
-        # Créer les préférences par défaut si elles n'existent pas
         prefs = UserPreferences(user_id=current_user.id)
         db.add(prefs)
         db.commit()

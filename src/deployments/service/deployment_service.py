@@ -24,6 +24,7 @@ from src.deployments.models.enums import DeploymentStatus
 from src.deployments.models.model_artifact import ModelArtifact
 from src.environment.models.Environment import Environment
 from src.runs.models.run import Run, RunStatus
+from src.notifications.email_service import notify_deployment  # ← ajouté
 
 logger = logging.getLogger(__name__)
 
@@ -208,10 +209,13 @@ def deploy(run_id: uuid.UUID, environment_id: uuid.UUID, db: Session) -> Deploym
         db.refresh(deployment)
         logger.info(f"Deployment ACTIVE: id={deployment.id}, port={port}")
 
+        notify_deployment(db=db, deployment=deployment, success=True)  # ← ajouté
+
     except Exception as e:
         logger.error(f"Container startup failed: {e}", exc_info=True)
         deployment.status = DeploymentStatus.FAILED
         db.commit()
+        notify_deployment(db=db, deployment=deployment, success=False)  # ← ajouté
         raise RuntimeError(f"Failed to start model container: {e}")
 
     return deployment

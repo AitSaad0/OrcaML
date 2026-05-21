@@ -17,6 +17,10 @@ class Settings(BaseSettings):
     R2_SECRET_KEY: str = "fake_secret_key"
     R2_BUCKET_NAME: str = "fake_bucket_name"
 
+    RESEND_API_KEY: str = ""                                   
+    RESEND_FROM_EMAIL: str = "onboarding@resend.dev"           
+
+
     CELERY_BROKER_URL: str = "redis://redis:6379/0"
     CELERY_RESULT_BACKEND: str = "redis://redis:6379/1" 
     
