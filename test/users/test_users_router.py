@@ -1,4 +1,3 @@
-import pytest
 from uuid import uuid4
 from fastapi.testclient import TestClient
 
@@ -110,8 +109,8 @@ def test_update_preferences(client: TestClient, auth_headers: dict):
     })
     assert res.status_code == 200
     data = res.json()
-    assert data["email_runs"]  == True
-    assert data["deployments"] == False
+    assert data["email_runs"]
+    assert not data["deployments"]
 
 
 def test_get_preferences_created_if_not_exists(client: TestClient, auth_headers: dict):

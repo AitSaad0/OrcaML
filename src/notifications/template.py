@@ -164,15 +164,22 @@ def run_completed_html(user_name: str, run_info: dict) -> str:
 
     if is_regression:
         metrics_rows = ""
-        if run_info.get("r2")   is not None: metrics_rows += _metric_row("R²",   f"{run_info['r2']:.4f}")
-        if run_info.get("rmse") is not None: metrics_rows += _metric_row("RMSE", f"{run_info['rmse']:.4f}")
-        if run_info.get("mae")  is not None: metrics_rows += _metric_row("MAE",  f"{run_info['mae']:.4f}")
+        if run_info.get("r2")   is not None:
+            metrics_rows += _metric_row("R²",   f"{run_info['r2']:.4f}")
+        if run_info.get("rmse") is not None: 
+            metrics_rows += _metric_row("RMSE", f"{run_info['rmse']:.4f}")
+        if run_info.get("mae")  is not None: 
+            metrics_rows += _metric_row("MAE",  f"{run_info['mae']:.4f}")
     else:
         metrics_rows = ""
-        if run_info.get("accuracy")  is not None: metrics_rows += _metric_row("Accuracy",  f"{run_info['accuracy'] * 100:.2f}%")
-        if run_info.get("f1_score")  is not None: metrics_rows += _metric_row("F1 Score",  f"{run_info['f1_score']:.4f}")
-        if run_info.get("precision") is not None: metrics_rows += _metric_row("Precision", f"{run_info['precision']:.4f}")
-        if run_info.get("recall")    is not None: metrics_rows += _metric_row("Recall",    f"{run_info['recall']:.4f}")
+        if run_info.get("accuracy")  is not None: 
+            metrics_rows += _metric_row("Accuracy",  f"{run_info['accuracy'] * 100:.2f}%")
+        if run_info.get("f1_score")  is not None: 
+            metrics_rows += _metric_row("F1 Score",  f"{run_info['f1_score']:.4f}")
+        if run_info.get("precision") is not None: 
+            metrics_rows += _metric_row("Precision", f"{run_info['precision']:.4f}")
+        if run_info.get("recall")    is not None: 
+            metrics_rows += _metric_row("Recall",    f"{run_info['recall']:.4f}")
 
     body = f"""
     {_heading("Your run just completed ✅")}

@@ -16,10 +16,8 @@ from datetime import datetime, timedelta, timezone
 from collections import defaultdict
 from src.auth.models.api_keys import ApiKey
 from src.auth.schemas.api_key import ApiKeyCreate, ApiKeyResponse, ApiKeyCreatedResponse
-from src.auth.security.hashing import hash_password 
 from src.auth.models.user_preferences import UserPreferences
 from src.auth.schemas.preferences import PreferencesResponse, PreferencesUpdate
-from datetime import datetime, timezone
 from src.notifications.email_service import notify_security_event  # ← ajouté
 
 router = APIRouter(prefix="/users", tags=["Users"])
@@ -92,8 +90,6 @@ def get_my_stats(
         "total_runs":         total_runs,
         "total_deployments":  total_deployments,
     }
-    from datetime import datetime, timedelta, timezone
-from collections import defaultdict
 
 @router.get("/me/activity")
 def get_my_activity(
@@ -128,7 +124,7 @@ def list_api_keys(
 ):
     return db.query(ApiKey).filter(
         ApiKey.user_id == current_user.id,
-        ApiKey.is_active == True,
+        ApiKey.is_active,
     ).all()
 
 
@@ -203,10 +199,14 @@ def update_preferences(
         prefs = UserPreferences(user_id=current_user.id)
         db.add(prefs)
 
-    if body.email_runs  is not None: prefs.email_runs  = body.email_runs
-    if body.deployments is not None: prefs.deployments = body.deployments
-    if body.weekly      is not None: prefs.weekly      = body.weekly
-    if body.security    is not None: prefs.security    = body.security
+    if body.email_runs  is not None:
+        prefs.email_runs  = body.email_runs
+    if body.deployments is not None: 
+        prefs.deployments = body.deployments
+    if body.weekly      is not None: 
+        prefs.weekly      = body.weekly
+    if body.security    is not None: 
+        prefs.security    = body.security
     prefs.updated_at = datetime.now(timezone.utc)
 
     db.commit()
