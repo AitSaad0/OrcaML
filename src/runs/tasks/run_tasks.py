@@ -34,6 +34,7 @@ from src.runs.models.run import Run, RunStatus, Algorithm
 from src.environment.models.Environment import Environment
 from src.environment.models.Task_type import TaskType
 from src.dataset.models.cleaned_dataset import CleanedDataset
+from src.notifications.email_service import notify_run_completed
 
 logger = logging.getLogger(__name__)
 
@@ -161,7 +162,7 @@ def train_iris_run(self, run_id: str):
             mlflow.log_param("random_state", run.training_config.random_state or 42)
             mlflow.log_param("cv_folds",     run.training_config.cv_folds or 5)
 
-            # ── 8. Entraînement et Évaluation ─────────────────────────────────
+            # ── Entraînement et Évaluation ────────────────────────────────
             if run.training_config.cross_validation:
                 cv_folds = run.training_config.cv_folds or 5
 
@@ -261,6 +262,9 @@ def train_iris_run(self, run_id: str):
 
             db.commit()
             logger.info(f"✅ Run {run_id} terminé en {run.duration_seconds:.2f}s")
+
+            # ── Notification email ─────────────────────────────────────────
+            notify_run_completed(db=db, run=run)
 
         return {"ok": True, "metrics": metrics, "duration_seconds": run.duration_seconds}
 
