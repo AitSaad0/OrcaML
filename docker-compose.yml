@@ -42,7 +42,7 @@ services:
       - mlflow_data:/mlflow
     environment:
       MLFLOW_ALLOW_ORIGIN: "*"
-      GUNICORN_CMD_ARGS: "--forwarded-allow-ips=*"
+      GUNICORN_CMD_ARGS: "--forwarded-allow-ips=* --workers 1 --timeout 120"
     command: >
       mlflow server
       --host 0.0.0.0
@@ -92,6 +92,7 @@ services:
       MLFLOW_TRACKING_URI: http://mlflow:5000
     volumes:
       - .:/app
+      - /var/run/docker.sock:/var/run/docker.sock
       - models_data:/app/models
       - mlflow_data:/mlflow
     networks:
@@ -104,6 +105,13 @@ services:
       mlflow:
         condition: service_started
     command: celery -A src.config.celery.celery worker --loglevel=info
+
+  model-server:
+    build:
+      context: ./src/docker/model-server
+      dockerfile: Dockerfile
+    image: orcaml-model-server 
+
 
 networks:
   orcaml_network:
