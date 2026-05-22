@@ -28,7 +28,7 @@ from src.notifications.email_service import notify_deployment  # ← ajouté
 
 logger = logging.getLogger(__name__)
 
-MODEL_SERVER_IMAGE      = "model-server:latest"
+MODEL_SERVER_IMAGE = "orcaml-model-server:latest"
 DOCKER_NETWORK          = "orcaml_orcaml_network"
 PORT_RANGE_START        = 8100
 PORT_RANGE_END          = 8200
