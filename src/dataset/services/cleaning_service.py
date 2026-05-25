@@ -29,7 +29,7 @@ def apply_cleaning(df: pd.DataFrame, config: CleaningConfig, target_column: str)
     # df.drop_duplicates() removes rows that are 100% identical
     # inplace=True → modifies df directly instead of returning a copy
     if config.remove_duplicates:
-        df.drop_duplicates(inplace=True)
+        df = df.drop_duplicates()
 
     # ── Step 2: Handle Missing Values ───────────────────────────
     # We separate target column from features
@@ -51,18 +51,18 @@ def apply_cleaning(df: pd.DataFrame, config: CleaningConfig, target_column: str)
         # fill missing with column average — only for numerical columns
         num_cols = df[feature_cols].select_dtypes(include="number").columns
         for col in num_cols:
-            df[col].fillna(df[col].mean(), inplace=True)
+            df[col] = df[col].fillna(df[col].mean())
 
     elif config.missing_strategy == MissingStrategy.MEDIAN:
         # fill missing with column median — better than mean for outliers
         num_cols = df[feature_cols].select_dtypes(include="number").columns
         for col in num_cols:
-            df[col].fillna(df[col].median(), inplace=True)
+            df[col] = df[col].fillna(df[col].median())
 
     elif config.missing_strategy == MissingStrategy.MODE:
         # fill missing with most frequent value — good for categorical
         for col in feature_cols:
-            df[col].fillna(df[col].mode()[0], inplace=True)
+            df[col] = df[col].fillna(df[col].mode()[0])
 
     elif config.missing_strategy == MissingStrategy.CONSTANT:
         # fill missing with fixed values
