@@ -9,20 +9,19 @@ from datetime import datetime, timezone
 from unittest.mock import MagicMock
 
 import pytest
+import sqlalchemy.dialects.postgresql
 from fastapi.testclient import TestClient
 from sqlalchemy import JSON, create_engine
 from sqlalchemy.orm import sessionmaker
 
-# Fix: Make JSONB work with SQLite for tests
-import sqlalchemy.dialects.postgresql
-sqlalchemy.dialects.postgresql.JSONB = JSON
-
-# Now import app modules AFTER the JSONB fix
 from src.config.db import Base, get_db
 from src.deployments.models.deployment import Deployment
 from src.deployments.models.enums import DeploymentStatus
 from src.deployments.service.deployment_service import BASE_HOST
 from main import app
+
+# Fix: Make JSONB work with SQLite for tests
+sqlalchemy.dialects.postgresql.JSONB = JSON
 
 # ── Environment variables must be set before any app import ───────────────────
 os.environ.setdefault("DB_USER", "test")
