@@ -1,6 +1,17 @@
 from __future__ import annotations
 
 import os
+
+# ── Environment variables must be set FIRST, before any app import ────────────
+os.environ.setdefault("DB_USER", "test")
+os.environ.setdefault("DB_PASSWORD", "test")
+os.environ.setdefault("DB_HOST", "localhost")
+os.environ.setdefault("DB_PORT", "5432")
+os.environ.setdefault("DB_NAME", "test_db")
+os.environ.setdefault("SECRET_KEY", "test-secret-key-for-testing-only-32chars!!")
+os.environ.setdefault("ALGORITHM", "HS256")
+os.environ.setdefault("ACCESS_TOKEN_EXPIRE_MINUTES", "30")
+
 import uuid
 from datetime import datetime, timezone
 from unittest.mock import MagicMock
@@ -11,24 +22,14 @@ from fastapi.testclient import TestClient
 from sqlalchemy import JSON, create_engine
 from sqlalchemy.orm import sessionmaker
 
+# Fix: Make JSONB work with SQLite for tests
+sqlalchemy.dialects.postgresql.JSONB = JSON
+
 from src.config.db import Base, get_db
 from src.deployments.models.deployment import Deployment
 from src.deployments.models.enums import DeploymentStatus
 from src.deployments.service.deployment_service import BASE_HOST
 from main import app
-
-# Fix: Make JSONB work with SQLite for tests
-sqlalchemy.dialects.postgresql.JSONB = JSON
-
-# ── Environment variables must be set before any app import ───────────────────
-os.environ.setdefault("DB_USER", "test")
-os.environ.setdefault("DB_PASSWORD", "test")
-os.environ.setdefault("DB_HOST", "localhost")
-os.environ.setdefault("DB_PORT", "5432")
-os.environ.setdefault("DB_NAME", "test_db")
-os.environ.setdefault("SECRET_KEY", "test-secret-key-for-testing-only-32chars!!")
-os.environ.setdefault("ALGORITHM", "HS256")
-os.environ.setdefault("ACCESS_TOKEN_EXPIRE_MINUTES", "30")
 
 # ── Database setup ────────────────────────────────────────────────────────────
 TEST_DATABASE_URL = "sqlite:///./test.db"
