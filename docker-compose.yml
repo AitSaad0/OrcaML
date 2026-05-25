@@ -1,4 +1,23 @@
 services:
+
+  reverse-proxy:
+    image: traefik:v3.7
+    command: 
+      - "--providers.docker=true"
+      - "--providers.docker.exposedbydefault=false"
+      - "--providers.docker.network=orcaml_orcaml_network"
+      - "--entrypoints.web.address=:80"
+      - "--api.dashboard=true"
+      - "--api.insecure=true"            
+      - "--log.level=INFO"
+    ports:
+      - "80:80"
+      - "8080:8080"
+    volumes:
+      - "/var/run/docker.sock:/var/run/docker.sock:ro"
+    networks:
+      - orcaml_network
+
   db:
     image: postgres:16-alpine
     restart: unless-stopped
@@ -110,9 +129,11 @@ services:
     build:
       context: ./src/docker/model-server
       dockerfile: Dockerfile
-    image: orcaml-model-server 
-
-
+    image: orcaml-model-server
+    networks:
+      - orcaml_network
+    profiles:
+      - build-only
 networks:
   orcaml_network:
     driver: bridge

@@ -38,7 +38,7 @@ class Deployment(Base):
     # Docker info
     container_id   = Column(String(255), nullable=True)
     container_name = Column(String(255), nullable=True)
-    port           = Column(Integer, nullable=True)
+    subdomain     = Column(String(255), nullable=True)
     endpoint_url   = Column(String(500), nullable=True)
 
     # Status
