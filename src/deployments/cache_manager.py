@@ -41,18 +41,24 @@ def _dir_size(directory: Path) -> int:
 def _scan_models() -> list[ModelEntry]:
     base = Path(MODELS_BASE_DIR)
     entries = []
-    if not base.exists(): return entries
+    if not base.exists(): 
+        return entries
     for run_dir in base.iterdir():
-        if not run_dir.is_dir(): continue
+        if not run_dir.is_dir():
+            continue
         pkl = _find_pkl(run_dir)
-        if not pkl: continue
+        if not pkl: 
+            continue
         entries.append(ModelEntry(pkl.stat().st_mtime, run_dir.name, _dir_size(run_dir), run_dir))
     return entries
 
 def _delete(entry: ModelEntry, dry_run: bool) -> None:
-    if dry_run: return
-    try: shutil.rmtree(entry.path)
-    except Exception as e: logger.error(f"Failed to delete {entry.path}: {e}")
+    if dry_run: 
+        return
+    try: 
+        shutil.rmtree(entry.path)
+    except Exception as e: 
+        logger.error(f"Failed to delete {entry.path}: {e}")
 
 def evict_unused_models(ttl_days=None, max_size_gb=None, max_models=None, dry_run=False) -> list[str]:
     ttl_days = ttl_days if ttl_days is not None else CACHE_TTL_DAYS
@@ -68,7 +74,8 @@ def evict_unused_models(ttl_days=None, max_size_gb=None, max_models=None, dry_ru
         if e.age_days > ttl_days:
             _delete(e, dry_run)
             evicted.append(e.run_id)
-        else: survivors.append(e)
+        else: 
+            survivors.append(e)
         
     # LRU/Size/Count Logic
     survivors.sort()
@@ -77,7 +84,8 @@ def evict_unused_models(ttl_days=None, max_size_gb=None, max_models=None, dry_ru
     
     # Evict by size
     for e in survivors[:]:
-        if total_bytes <= max_bytes: break
+        if total_bytes <= max_bytes: 
+            break
         _delete(e, dry_run)
         evicted.append(e.run_id)
         total_bytes -= e.size_bytes
@@ -85,7 +93,8 @@ def evict_unused_models(ttl_days=None, max_size_gb=None, max_models=None, dry_ru
         
     # Evict by count
     for e in survivors[:]:
-        if len(survivors) <= max_models: break
+        if len(survivors) <= max_models: 
+            break
         _delete(e, dry_run)
         evicted.append(e.run_id)
         survivors.remove(e)
