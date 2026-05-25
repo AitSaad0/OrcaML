@@ -1,7 +1,11 @@
 import os
+import uuid
+from datetime import datetime, timezone
+from unittest.mock import MagicMock
+
 import pytest
 
-# ── Env vars must be set before any app import ─────────────────────────────────
+# ── Env vars must be set before any app import ────────────────────────────────
 os.environ.setdefault("DB_USER", "test")
 os.environ.setdefault("DB_PASSWORD", "test")
 os.environ.setdefault("DB_HOST", "localhost")
@@ -15,9 +19,12 @@ from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from src.config.db import Base, get_db
+from src.deployments.models.deployment import Deployment
+from src.deployments.models.enums import DeploymentStatus
+from src.deployments.service.deployment_service import BASE_HOST
 from main import app
 
-# ── Database setup ─────────────────────────────────────────────────────────────
+# ── Database setup ────────────────────────────────────────────────────────────
 
 TEST_DATABASE_URL = "sqlite:///./test.db"
 engine = create_engine(TEST_DATABASE_URL, connect_args={"check_same_thread": False})
@@ -40,7 +47,16 @@ def setup_database():
     Base.metadata.drop_all(bind=engine)
 
 
-# ── App / HTTP client ──────────────────────────────────────────────────────────
+@pytest.fixture
+def db_session(setup_database):
+    db = TestingSessionLocal()
+    try:
+        yield db
+    finally:
+        db.close()
+
+
+# ── App / HTTP client ─────────────────────────────────────────────────────────
 
 @pytest.fixture
 def client():
@@ -50,7 +66,7 @@ def client():
     app.dependency_overrides.clear()
 
 
-# ── Auth fixtures ──────────────────────────────────────────────────────────────
+# ── Auth fixtures ─────────────────────────────────────────────────────────────
 
 @pytest.fixture
 def registered_user(client):
@@ -93,7 +109,7 @@ def user_b_headers(client):
     return {"Authorization": f"Bearer {token}"}
 
 
-# ── Project fixtures ───────────────────────────────────────────────────────────
+# ── Project fixtures ──────────────────────────────────────────────────────────
 
 @pytest.fixture
 def create_project(client, auth_headers):
@@ -124,7 +140,7 @@ DEFAULT_STATUS    = "pending"
 DEFAULT_TASK_TYPE = "classification"
 
 
-# ── Environment payloads ───────────────────────────────────────────────────────
+# ── Environment payloads ──────────────────────────────────────────────────────
 
 @pytest.fixture
 def valid_create_payload():
@@ -141,7 +157,7 @@ def valid_update_payload():
     return {"name": "Updated Environment"}
 
 
-# ── Environment factory ────────────────────────────────────────────────────────
+# ── Environment factory ───────────────────────────────────────────────────────
 
 @pytest.fixture
 def create_environment(client, auth_headers, create_project):
@@ -176,10 +192,68 @@ def create_environment(client, auth_headers, create_project):
         return response.json(), project_id
 
     return _create
+
+
+# ── Deployment helpers (used by unit tests, no HTTP/DB needed) ────────────────
+
+def make_deployment(
+    status: DeploymentStatus = DeploymentStatus.ACTIVE,
+    *,
+    deployment_id: uuid.UUID | None = None,
+    container_id: str = "abc123",
+    container_name: str | None = None,
+    subdomain: str | None = None,
+    endpoint_url: str | None = None,
+) -> Deployment:
+    """Build a minimal Deployment ORM-like object (no DB needed)."""
+    dep_id = deployment_id or uuid.uuid4()
+    sub = subdomain or f"model-{dep_id}"
+    d = Deployment()
+    d.id             = dep_id
+    d.model_id       = uuid.uuid4()
+    d.environment_id = uuid.uuid4()
+    d.status         = status
+    d.container_id   = container_id
+    d.container_name = container_name or f"model-{dep_id}"
+    d.subdomain      = sub
+    d.endpoint_url   = endpoint_url or f"http://{sub}.{BASE_HOST}/predict"
+    d.total_calls    = 0
+    d.avg_latency_ms = None
+    d.last_called_at = None
+    d.created_at     = datetime.now(timezone.utc)
+    d.deployed_at    = None
+    d.stopped_at     = None
+    mock_model = MagicMock()          # <-- add this
+    mock_model.algorithm = "random_forest"  # any value
+    d.model = mock_model      
+    return d
+
+
+def make_db_with_deployment(dep: Deployment) -> MagicMock:
+    """DB mock wired up for standard undeploy/predict query patterns."""
+    db = MagicMock()
+    db.query.return_value.filter.return_value.first.return_value = dep
+    db.add     = MagicMock()
+    db.commit  = MagicMock()
+    db.flush   = MagicMock()
+    db.refresh = MagicMock()
+    return db
+
+
+def make_db_for_predict(dep: Deployment) -> MagicMock:
+    """DB mock wired up for predict()'s .options() query chain."""
+    db = MagicMock()
+    db.query.return_value.options.return_value.filter.return_value.first.return_value = dep
+    db.add    = MagicMock()
+    db.commit = MagicMock()
+    return db
+
+
 @pytest.fixture
-def db_session(setup_database):
-    db = TestingSessionLocal()
-    try:
-        yield db
-    finally:
-        db.close()
+def active_deployment() -> Deployment:
+    return make_deployment(status=DeploymentStatus.ACTIVE)
+
+
+@pytest.fixture
+def stopped_deployment() -> Deployment:
+    return make_deployment(status=DeploymentStatus.STOPPED)

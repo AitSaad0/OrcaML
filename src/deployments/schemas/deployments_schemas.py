@@ -56,17 +56,15 @@ class DeploymentResponse(BaseModel):
     environment_id: UUID
     status:         DeploymentStatus
     endpoint_url:   str | None
-    port:           int | None
     total_calls:    int
     last_called_at: datetime | None
     created_at:     datetime
     deployed_at:    datetime | None
     stopped_at:     datetime | None
     avg_latency_ms: float | None = None
-    # Nested model info — useful for the frontend
-    model: ModelArtifactResponse
+    model:          ModelArtifactResponse
 
-
+    
 class PredictResponse(BaseModel):
     deployment_id:    UUID
     model_id:         UUID

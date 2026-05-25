@@ -26,6 +26,11 @@ class Settings(BaseSettings):
     
     MLFLOW_TRACKING_URI: str = "http://mlflow:5000"
     MLFLOW_EXPERIMENT_NAME: str = "orcaml-experiments"
+
+    CACHE_TTL_DAYS: int = 7
+    CACHE_MAX_SIZE_GB: int = 10
+    CACHE_MAX_MODELS: int = 20
+    
     @property
     def DATABASE_URL(self) -> str:
         return f"postgresql://{self.DB_USER}:{self.DB_PASSWORD}@{self.DB_HOST}:{self.DB_PORT}/{self.DB_NAME}"

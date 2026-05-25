@@ -135,7 +135,7 @@ def get_deployment(
     check_environment(environment_id, current_user, db)
     deployment = check_deployment(deployment_id, environment_id, db)
 
-    logger.debug(f"Returning deployment {deployment_id} — status={deployment.status}, port={deployment.port}")
+    logger.debug(f"Returning deployment {deployment_id} — status={deployment.status}")
     return deployment
 
 

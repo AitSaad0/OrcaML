@@ -1,5 +1,4 @@
 import logging
-import socket
 import time
 import uuid
 from datetime import datetime, timezone
@@ -24,17 +23,18 @@ from src.deployments.models.enums import DeploymentStatus
 from src.deployments.models.model_artifact import ModelArtifact
 from src.environment.models.Environment import Environment
 from src.runs.models.run import Run, RunStatus
-from src.notifications.email_service import notify_deployment  # ← ajouté
+from src.notifications.email_service import notify_deployment
+from src.deployments.cache_manager import touch_model
 
 logger = logging.getLogger(__name__)
 
-MODEL_SERVER_IMAGE = "orcaml-model-server:latest"
+MODEL_SERVER_IMAGE      = "orcaml-model-server:latest"
 DOCKER_NETWORK          = "orcaml_orcaml_network"
-PORT_RANGE_START        = 8100
-PORT_RANGE_END          = 8200
 MODELS_VOLUME_HOST_PATH = "/var/lib/docker/volumes/orcaml_models_data/_data"
+BASE_HOST               = "localhost"
 
 _docker_client = None
+
 
 def _get_docker_client() -> docker.DockerClient:
     global _docker_client
@@ -48,21 +48,29 @@ def _get_docker_client() -> docker.DockerClient:
     return _docker_client
 
 
-def _find_free_port(db: Session) -> int:
-    used_ports = {
-        row.port for row in db.query(Deployment.port).filter(
-            Deployment.status.in_([DeploymentStatus.ACTIVE, DeploymentStatus.DEPLOYING]),
-            Deployment.port.isnot(None),
-        ).all()
+def build_labels(deployment_id: uuid.UUID) -> dict:
+    """
+    Labels read by Traefik automatically when the container starts.
+    No config file, no reload needed.
+    """
+    name = f"model-{deployment_id}"
+    return {
+        # Tell Traefik to manage this container
+        "traefik.enable": "true",
+
+        # Router: match incoming requests by hostname
+        f"traefik.http.routers.{name}.rule": f"Host(`{name}.{BASE_HOST}`)",
+
+        # Use the web entrypoint (port 80)
+        f"traefik.http.routers.{name}.entrypoints": "web",
+
+        # Tell Traefik which port the container listens on internally
+        f"traefik.http.services.{name}.loadbalancer.server.port": "8000",
+
+        # Custom labels for filtering our containers
+        "orcaml.managed": "true",
+        "orcaml.deployment_id": str(deployment_id),
     }
-    for port in range(PORT_RANGE_START, PORT_RANGE_END):
-        if port in used_ports:
-            continue
-        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-            s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-            if s.connect_ex(("localhost", port)) != 0:
-                return port
-    raise RuntimeError(f"No free ports available in range {PORT_RANGE_START}-{PORT_RANGE_END}")
 
 
 def _prepare_features(features: dict, environment_id: uuid.UUID, db: Session) -> list[float]:
@@ -156,6 +164,7 @@ def deploy(run_id: uuid.UUID, environment_id: uuid.UUID, db: Session) -> Deploym
         if not verify_run_has_artifact(run.mlflow_run_id):
             raise ValueError(f"No artifact found in MLflow for run {run.mlflow_run_id}.")
         file_path = download_model_artifact(run.mlflow_run_id)
+        touch_model(run.mlflow_run_id)
         model_artifact = ModelArtifact(
             run_id=run_id,
             environment_id=environment_id,
@@ -175,20 +184,21 @@ def deploy(run_id: uuid.UUID, environment_id: uuid.UUID, db: Session) -> Deploym
         status=DeploymentStatus.DEPLOYING,
     )
     db.add(deployment)
-    db.flush()
+    db.flush()  # generates deployment.id without committing
 
     try:
-        port           = _find_free_port(db)
         client         = _get_docker_client()
+        subdomain      = f"model-{deployment.id}"
         container_name = f"model-{deployment.id}"
         host_file_path = model_artifact.file_path.replace("/app/models", MODELS_VOLUME_HOST_PATH)
 
         container = client.containers.run(
             image=MODEL_SERVER_IMAGE,
             name=container_name,
+            labels=build_labels(deployment.id),
             detach=True,
             network=DOCKER_NETWORK,
-            ports={"8000/tcp": port},
+            # no ports mapping — Traefik handles routing internally
             volumes={host_file_path: {"bind": "/app/model.pkl", "mode": "ro"}},
             environment={
                 "MODEL_ID":   str(model_artifact.id),
@@ -200,22 +210,22 @@ def deploy(run_id: uuid.UUID, environment_id: uuid.UUID, db: Session) -> Deploym
 
         deployment.container_id   = container.id
         deployment.container_name = container_name
-        deployment.port           = port
-        deployment.endpoint_url   = f"http://localhost:{port}/predict"
+        deployment.subdomain      = subdomain
+        deployment.endpoint_url   = f"http://{subdomain}.{BASE_HOST}/predict"
         deployment.status         = DeploymentStatus.ACTIVE
         deployment.deployed_at    = datetime.now(timezone.utc)
 
         db.commit()
         db.refresh(deployment)
-        logger.info(f"Deployment ACTIVE: id={deployment.id}, port={port}")
+        logger.info(f"Deployment ACTIVE: id={deployment.id}, url={deployment.endpoint_url}")
 
-        notify_deployment(db=db, deployment=deployment, success=True)  # ← ajouté
+        notify_deployment(db=db, deployment=deployment, success=True)
 
     except Exception as e:
         logger.error(f"Container startup failed: {e}", exc_info=True)
         deployment.status = DeploymentStatus.FAILED
         db.commit()
-        notify_deployment(db=db, deployment=deployment, success=False)  # ← ajouté
+        notify_deployment(db=db, deployment=deployment, success=False)
         raise RuntimeError(f"Failed to start model container: {e}")
 
     return deployment
@@ -233,6 +243,7 @@ def undeploy(deployment_id: uuid.UUID, db: Session) -> Deployment:
         container = client.containers.get(deployment.container_id)
         container.stop(timeout=10)
         container.remove()
+        # Traefik automatically removes the route when container stops
         logger.info(f"Container {deployment.container_name} stopped and removed")
     except NotFound:
         logger.warning(f"Container {deployment.container_name} not found — marking STOPPED anyway")
@@ -269,6 +280,7 @@ async def predict(deployment_id: uuid.UUID, features: dict, db: Session) -> dict
     except Exception as e:
         raise RuntimeError(f"Échec du preprocessing : {e}")
 
+    # Internal Docker network call — use container_name directly, not the Traefik URL
     predict_url = f"http://{deployment.container_name}:8000/predict"
     try:
         start = time.monotonic()
@@ -280,7 +292,7 @@ async def predict(deployment_id: uuid.UUID, features: dict, db: Session) -> dict
         logger.debug(f"Predict latency: {latency_ms:.1f}ms")
 
     except httpx.TimeoutException:
-        raise RuntimeError(f"Model container timed out — port {deployment.port}")
+        raise RuntimeError(f"Model container timed out — container {deployment.container_name}")
     except httpx.HTTPStatusError as e:
         raise RuntimeError(f"Model container returned an error: {e.response.text}")
     except Exception as e:
