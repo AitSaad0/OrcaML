@@ -1,6 +1,3 @@
-"""
-Test configuration and fixtures for OrcaML tests.
-"""
 from __future__ import annotations
 
 import os
