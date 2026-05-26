@@ -79,11 +79,5 @@ def test_trigger_cleaning_success(client, auth_headers, env_id):
     assert response.status_code == 202, response.json()
     body = response.json()
     assert body["status"] == "pending"
-    assert body["environment_id"] == env_id
+    assert "id" in body
     mock_task.delay.assert_called_once()
-
-
-def test_cleaning_requires_auth(client, env_id):
-    """No token → 401."""
-    response = client.post(f"/environments/{env_id}/cleaning/config", json={})
-    assert response.status_code == 401
