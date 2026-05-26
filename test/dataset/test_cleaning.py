@@ -4,49 +4,53 @@ import pytest
 CSV_CONTENT = (
     b"age,name,salary,target\n"
     b"25,Alice,50000,1\n"
-    b"30,Bob,,1\n"           # salary missing
-    b",Carol,45000,0\n"      # age missing
-    b"25,Alice,50000,1\n"    # duplicate
+    b"30,Bob,,1\n"
+    b",Carol,45000,0\n"
+    b"25,Alice,50000,1\n"
 )
 
-# ── Test CleaningConfig ────────────────────────────────────────
 
+# ── Test CleaningConfig ────────────────────────────────────────
 @pytest.fixture
 def env_id(create_environment):
-    environment, _ = create_environment()  # unpack the tuple
+    environment, _ = create_environment()
     return str(environment["id"])
+
 
 def test_create_cleaning_config(client, auth_headers, env_id):
     """Create a cleaning config → 201."""
-    response = client.post(f"/cleaning/{env_id}/config",
+    response = client.post(
+        f"/environments/{env_id}/cleaning/config",
         json={
-            "missing_strategy":  "median",
+            "missing_strategy":  "MEDIAN",
             "remove_duplicates": True,
-            "encoding_method":   "one_hot",
-            "scaling_method":    "standard",
+            "encoding_method":   "ONE_HOT",
+            "scaling_method":    "STANDARD",
             "version":           "V1",
         },
         headers=auth_headers,
     )
-    assert response.status_code == 201
+    assert response.status_code == 201, response.json()
     body = response.json()
     assert body["environment_id"]   == env_id
-    assert body["missing_strategy"] == "median"
+    assert body["missing_strategy"] == "MEDIAN"
     assert body["version"]          == "V1"
 
 
 def test_create_cleaning_config_defaults(client, auth_headers, env_id):
     """Create config with defaults → 201."""
-    response = client.post(f"/cleaning/{env_id}/config",
-        json={},   # all defaults
+    response = client.post(
+        f"/environments/{env_id}/cleaning/config",
+        json={},
         headers=auth_headers,
     )
-    assert response.status_code == 201
+    assert response.status_code == 201, response.json()
 
 
 def test_trigger_cleaning_no_config(client, auth_headers, env_id):
     """Trigger cleaning without config → 404."""
-    response = client.post(f"/cleaning/{env_id}/trigger",
+    response = client.post(
+        f"/environments/{env_id}/cleaning/trigger",
         headers=auth_headers,
     )
     assert response.status_code == 404
@@ -55,35 +59,31 @@ def test_trigger_cleaning_no_config(client, auth_headers, env_id):
 
 def test_trigger_cleaning_success(client, auth_headers, env_id):
     """Create config then trigger → 202 + status=pending."""
-
-    # Step 1: create config first (POST to /config, not /trigger)
     client.post(
-        f"/cleaning/{env_id}/config",
+        f"/environments/{env_id}/cleaning/config",
         json={
-            "missing_strategy": "median",
+            "missing_strategy": "MEDIAN",
             "remove_duplicates": True,
-            "encoding_method": "one_hot",
-            "scaling_method": "standard",
+            "encoding_method": "ONE_HOT",
+            "scaling_method": "STANDARD",
             "version": "V1",
         },
         headers=auth_headers,
     )
-
-    # Step 2: trigger cleaning (mock Celery so it doesn't actually run)
-    with patch("src.dataset.services.cleaning_config_service.run_cleaning") as mock_task:
+    with patch("src.dataset.tasks.cleaning_tasks.run_cleaning") as mock_task:
         mock_task.delay.return_value = MagicMock(id="celery-task-id")
         response = client.post(
-            f"/cleaning/{env_id}/trigger",  # consistent prefix
+            f"/environments/{env_id}/cleaning/trigger",
             headers=auth_headers,
         )
-
-    assert response.status_code == 202
+    assert response.status_code == 202, response.json()
     body = response.json()
     assert body["status"] == "pending"
     assert body["environment_id"] == env_id
     mock_task.delay.assert_called_once()
 
+
 def test_cleaning_requires_auth(client, env_id):
     """No token → 401."""
-    response = client.post(f"/cleaning/{env_id}/config", json={})
+    response = client.post(f"/environments/{env_id}/cleaning/config", json={})
     assert response.status_code == 401
