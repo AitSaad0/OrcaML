@@ -19,6 +19,7 @@ services:
       - orcaml_network
 
   db:
+    
     image: postgres:16-alpine
     restart: unless-stopped
     environment:
@@ -70,6 +71,9 @@ services:
       --default-artifact-root /mlflow/artifacts
 
   app:
+    dns:
+      - 8.8.8.8
+      - 1.1.1.1
     build: .
     restart: unless-stopped
     env_file:
@@ -100,6 +104,9 @@ services:
              uvicorn main:app --host 0.0.0.0 --port 8000 --reload"
 
   worker:
+    dns:
+      - 8.8.8.8
+      - 1.1.1.1
     build: .
     restart: unless-stopped
     env_file:

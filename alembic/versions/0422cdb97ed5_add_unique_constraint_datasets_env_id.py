@@ -3,12 +3,10 @@
 Revision ID: 0422cdb97ed5
 Revises: d6d6d508352a
 Create Date: 2026-05-13 17:21:28.260586
-
 """
 from typing import Sequence, Union
 
 from alembic import op
-
 
 # revision identifiers, used by Alembic.
 revision: str = '0422cdb97ed5'
