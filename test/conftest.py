@@ -12,14 +12,18 @@ os.environ.setdefault("SECRET_KEY", "test-secret-key-for-testing-only-32chars!!"
 os.environ.setdefault("ALGORITHM", "HS256")
 os.environ.setdefault("ACCESS_TOKEN_EXPIRE_MINUTES", "30")
 
+# Fix: Make JSONB work with SQLite for tests — must patch BEFORE model imports
+import sqlalchemy.dialects.postgresql  # noqa: E402
+from sqlalchemy import JSON  # noqa: E402
+sqlalchemy.dialects.postgresql.JSONB = JSON  # noqa: E402
+
 import uuid  # noqa: E402
 from datetime import datetime, timezone  # noqa: E402
 from unittest.mock import MagicMock  # noqa: E402
 
 import pytest  # noqa: E402
-import sqlalchemy.dialects.postgresql  # noqa: E402
 from fastapi.testclient import TestClient  # noqa: E402
-from sqlalchemy import JSON, create_engine  # noqa: E402
+from sqlalchemy import create_engine  # noqa: E402
 from sqlalchemy.orm import sessionmaker  # noqa: E402
 
 from main import app  # noqa: E402
@@ -27,10 +31,6 @@ from src.config.db import Base, get_db  # noqa: E402
 from src.deployments.models.deployment import Deployment  # noqa: E402
 from src.deployments.models.enums import DeploymentStatus  # noqa: E402
 from src.deployments.service.deployment_service import BASE_HOST  # noqa: E402
-
-# Fix: Make JSONB work with SQLite for tests
-sqlalchemy.dialects.postgresql.JSONB = JSON
-
 # ── Database setup ────────────────────────────────────────────────────────────
 TEST_DATABASE_URL = "sqlite:///./test.db"
 engine = create_engine(TEST_DATABASE_URL, connect_args={"check_same_thread": False})
