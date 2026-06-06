@@ -2,7 +2,6 @@ import uuid
 from io import BytesIO
 
 import pandas as pd
-from sqlalchemy import select, desc
 from sqlalchemy.orm import Session
 import logging
 from src.project.models.project import Project
@@ -24,7 +23,6 @@ from src.environment.schemas.environment_schemas import (
     EnvironmentUpdateResponse,
     EnvironmentListResponse,
 )
-from src.dataset.models.cleaned_dataset import CleanedDataset
 from src.dataset.models.dataset import Dataset
 from src.dataset.services.r2_service import get_s3_client
 from src.config.config import settings
