@@ -41,7 +41,6 @@ def _effective_rule(
     """
     for rule in config.column_rules:
         if rule.column == column:
-            # Fill unset fields with global defaults
             return ColumnRuleIn(
                 column=rule.column,
                 action=rule.action,
@@ -106,9 +105,16 @@ def _clip_outliers_iqr(df: pd.DataFrame, col: str) -> Tuple[pd.DataFrame, int]:
 def apply_cleaning(
     df: pd.DataFrame,
     config: CleaningConfigIn,
+    target_column: str | None = None,          # ← AJOUT : colonne cible à protéger
 ) -> Tuple[pd.DataFrame, Dict[str, Any]]:
     """
     Apply all cleaning steps according to `config`.
+
+    Parameters
+    ----------
+    df            : raw DataFrame
+    config        : cleaning configuration
+    target_column : name of the target column — always excluded from all transforms
 
     Returns
     -------
@@ -128,16 +134,21 @@ def apply_cleaning(
         df = df.drop_duplicates()
         report["duplicates_removed"] = before - len(df)
 
-    # ── Build per-column rules ─────────────────────────────────────────────────
-    # Determine which columns are "target" (exempt from all transforms)
+    # ── Build per-column protection sets ──────────────────────────────────────
+    # Columns marked as target via column_rules
     target_cols = {
         r.column for r in config.column_rules if r.action == ColumnAction.target
     }
+    # Always protect target_column passed explicitly — regardless of column_rules
+    if target_column:
+        target_cols.add(target_column)
+
     drop_cols = {
         r.column for r in config.column_rules if r.action == ColumnAction.drop
     }
-    # Add this set before Step 2
+
     one_hot_cols: set[str] = set()
+
     # ── Step 2: per-column imputation ─────────────────────────────────────────
     for col in df.columns:
         if col in target_cols or col in drop_cols:
@@ -165,7 +176,6 @@ def apply_cleaning(
             elif strategy == MissingStrategy.drop:
                 df = df.dropna(subset=[col])
         else:
-            # categorical / text: fill with mode or constant
             strategy = rule.missing_strategy or MissingStrategy.mode
             if strategy == MissingStrategy.drop:
                 df = df.dropna(subset=[col])
@@ -207,7 +217,8 @@ def apply_cleaning(
         if col not in report["columns"]:
             report["columns"][col] = {"action": "clean"}
         report["columns"][col]["outliers_removed"] = outliers_removed
-# ── Step 4: encoding (categorical only) ───────────────────────────────────
+
+    # ── Step 4: encoding (categorical only) ───────────────────────────────────
     one_hot_cols: set[str] = set()
     cols_snapshot = list(df.columns)
     for col in cols_snapshot:
@@ -228,7 +239,7 @@ def apply_cleaning(
         if enc == EncodingMethod.one_hot:
             dummies = pd.get_dummies(df[[col]], columns=[col], drop_first=True)
             new_cols = list(dummies.columns)
-            one_hot_cols.update(new_cols)   # ← track them
+            one_hot_cols.update(new_cols)
             df = pd.concat([df.drop(columns=[col]), dummies], axis=1)
         elif enc == EncodingMethod.label:
             le = LabelEncoder()
@@ -247,7 +258,7 @@ def apply_cleaning(
     # ── Step 5: scaling (numeric only) ────────────────────────────────────────
     for col in list(df.columns):
         if col in target_cols or col in drop_cols or col in one_hot_cols:
-            continue                        # ← one_hot_cols skipped here
+            continue
         if not pd.api.types.is_numeric_dtype(df[col]):
             continue
 
