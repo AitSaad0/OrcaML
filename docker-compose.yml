@@ -8,7 +8,7 @@ services:
       - "--providers.docker.network=orcaml_orcaml_network"
       - "--entrypoints.web.address=:80"
       - "--api.dashboard=true"
-      - "--api.insecure=true"            
+      - "--api.insecure=true"
       - "--log.level=INFO"
     ports:
       - "80:80"
@@ -19,7 +19,6 @@ services:
       - orcaml_network
 
   db:
-    
     image: postgres:16-alpine
     restart: unless-stopped
     environment:
@@ -71,11 +70,11 @@ services:
       --default-artifact-root /mlflow/artifacts
 
   app:
+    image: moubakhta/orcaml-app:${IMAGE_TAG:-latest}
+    restart: unless-stopped
     dns:
       - 8.8.8.8
       - 1.1.1.1
-    build: .
-    restart: unless-stopped
     env_file:
       - .env
     environment:
@@ -84,7 +83,6 @@ services:
       CELERY_RESULT_BACKEND: redis://redis:6379/1
       MLFLOW_TRACKING_URI: http://mlflow:5000
     volumes:
-      - .:/app
       - /var/run/docker.sock:/var/run/docker.sock
       - models_data:/app/models
       - mlflow_data:/mlflow
@@ -99,16 +97,14 @@ services:
         condition: service_healthy
       mlflow:
         condition: service_started
-    command: >
-      sh -c "alembic upgrade head &&
-             uvicorn main:app --host 0.0.0.0 --port 8000 --reload"
+    command: uvicorn main:app --host 0.0.0.0 --port 8000
 
   worker:
+    image: moubakhta/orcaml-app:${IMAGE_TAG:-latest}
+    restart: unless-stopped
     dns:
       - 8.8.8.8
       - 1.1.1.1
-    build: .
-    restart: unless-stopped
     env_file:
       - .env
     environment:
@@ -117,7 +113,6 @@ services:
       CELERY_RESULT_BACKEND: redis://redis:6379/1
       MLFLOW_TRACKING_URI: http://mlflow:5000
     volumes:
-      - .:/app
       - /var/run/docker.sock:/var/run/docker.sock
       - models_data:/app/models
       - mlflow_data:/mlflow
@@ -133,14 +128,10 @@ services:
     command: celery -A src.config.celery.celery worker --loglevel=info
 
   model-server:
-    build:
-      context: ./src/docker/model-server
-      dockerfile: Dockerfile
-    image: orcaml-model-server
+    image: moubakhta/orcaml-model-server:${IMAGE_TAG:-latest}
     networks:
       - orcaml_network
-    profiles:
-      - build-only
+
 networks:
   orcaml_network:
     driver: bridge
