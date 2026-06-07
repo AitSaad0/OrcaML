@@ -28,11 +28,10 @@ from src.deployments.cache_manager import touch_model
 
 logger = logging.getLogger(__name__)
 
-MODEL_SERVER_IMAGE      = "orcaml-model-server:latest"
+MODEL_SERVER_IMAGE = "moubakhta/orcaml-model-server:latest"
 DOCKER_NETWORK          = "orcaml_orcaml_network"
 MODELS_VOLUME_HOST_PATH = "/var/lib/docker/volumes/orcaml_models_data/_data"
-BASE_HOST               = "localhost"
-
+BASE_HOST = "16.170.57.181"
 _docker_client = None
 
 
