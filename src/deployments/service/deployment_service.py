@@ -31,7 +31,7 @@ logger = logging.getLogger(__name__)
 MODEL_SERVER_IMAGE = "moubakhta/orcaml-model-server:latest"
 DOCKER_NETWORK          = "orcaml_orcaml_network"
 MODELS_VOLUME_HOST_PATH = "/var/lib/docker/volumes/orcaml_models_data/_data"
-BASE_HOST = "16.170.57.181"
+BASE_HOST = "16.170.57.181.nip.io"
 _docker_client = None
 
 
@@ -66,6 +66,7 @@ def build_labels(deployment_id: uuid.UUID) -> dict:
         # Tell Traefik which port the container listens on internally
         f"traefik.http.services.{name}.loadbalancer.server.port": "8000",
 
+        "traefik.docker.network": "orcaml_orcaml_network",
         # Custom labels for filtering our containers
         "orcaml.managed": "true",
         "orcaml.deployment_id": str(deployment_id),
