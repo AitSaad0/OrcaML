@@ -1,10 +1,13 @@
 from datetime import datetime
 from typing import Any
 from uuid import UUID
+import uuid
 
 from pydantic import BaseModel, ConfigDict
 
 from src.deployments.models.enums import DeploymentStatus
+from src.runs.models.run import Algorithm
+
 
 
 # ── Request schemas ───────────────────────────────────────────────────────────
@@ -76,3 +79,11 @@ class PredictResponse(BaseModel):
 class LogsResponse(BaseModel):
     deployment_id: UUID
     logs:          list[str]
+
+
+class RunForDownloadResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True, populate_by_name=True)
+    id:            UUID
+    mlflow_run_id: str
+    algorithm:     Algorithm
+    finished_at:   datetime | None
