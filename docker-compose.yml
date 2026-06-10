@@ -129,6 +129,10 @@ services:
 
   model-server:
     image: moubakhta/orcaml-model-server:${IMAGE_TAG:-latest}
+    build:
+      context: ./model-server  # path to the Dockerfile
+    profiles:
+      - build-only
     networks:
       - orcaml_network
 

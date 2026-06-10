@@ -72,6 +72,38 @@ def build_labels(deployment_id: uuid.UUID) -> dict:
         "orcaml.deployment_id": str(deployment_id),
     }
 
+def list_downloadable_runs(environment_id: uuid.UUID, db: Session) -> list[Run]:
+    return (
+        db.query(Run)
+        .filter(
+            Run.environment_id == environment_id,
+            Run.status == RunStatus.COMPLETED,
+            Run.mlflow_run_id.isnot(None),
+        )
+        .order_by(Run.finished_at.desc())
+        .all()
+    )
+
+
+def download_model_by_run(run_id: uuid.UUID, environment_id: uuid.UUID, db: Session) -> str:
+    run = db.query(Run).filter(
+        Run.id == run_id,
+        Run.environment_id == environment_id, 
+    ).first()
+
+    if not run:
+        raise ValueError(f"Run {run_id} not found in environment {environment_id}")
+    if run.status != RunStatus.COMPLETED:
+        raise ValueError(f"Run {run_id} is not COMPLETED")
+    if not run.mlflow_run_id:
+        raise ValueError(f"Run {run_id} has no mlflow_run_id")
+
+    try:
+        return download_model_artifact(run.mlflow_run_id)
+    except FileNotFoundError as e:
+        raise FileNotFoundError(f"Artifact not found in MLflow for run {run.mlflow_run_id}: {e}")
+    except Exception as e:
+        raise RuntimeError(f"Failed to download artifact: {e}")
 
 def _prepare_features(features: dict, environment_id: uuid.UUID, db: Session) -> list[float]:
     environment = db.execute(

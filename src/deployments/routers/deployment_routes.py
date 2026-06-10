@@ -3,6 +3,7 @@ import logging
 
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session, joinedload
+from fastapi.responses import FileResponse
 
 from src.config.db import get_db
 from src.auth.dependencies.auth import get_current_user
@@ -16,6 +17,7 @@ from src.deployments.schemas.deployments_schemas import (
     PredictRequest,
     PredictResponse,
     LogsResponse,
+    RunForDownloadResponse,
 )
 
 logger = logging.getLogger(__name__)
@@ -42,8 +44,6 @@ def check_environment(environment_id: uuid.UUID, current_user: User, db: Session
         logger.warning(f"Environment {environment_id} not found in DB — returning 404")
         raise HTTPException(status_code=404, detail="Environnement introuvable.")
 
-    logger.debug(f"Environment {environment_id} found — project_id={env.project.id}, owner_id={env.project.user_id}")
-
     if env.project.user_id != current_user.id:
         logger.warning(
             f"Access denied: user {current_user.id} tried to access environment "
@@ -64,8 +64,6 @@ def check_deployment(deployment_id: uuid.UUID, environment_id: uuid.UUID, db: Se
         logger.warning(f"Deployment {deployment_id} not found in DB — returning 404")
         raise HTTPException(status_code=404, detail="Deployment introuvable.")
 
-    logger.debug(f"Deployment {deployment_id} found — status={deployment.status}, environment_id={deployment.environment_id}")
-
     if deployment.environment_id != environment_id:
         logger.warning(
             f"Deployment {deployment_id} belongs to environment {deployment.environment_id}, "
@@ -80,7 +78,7 @@ def check_deployment(deployment_id: uuid.UUID, environment_id: uuid.UUID, db: Se
     return deployment
 
 
-# ── Routes ────────────────────────────────────────────────────────────────────
+# ── Routes statiques ──────────────────────────────────────────────────────────
 
 @router.post("", response_model=DeploymentResponse, status_code=201)
 def deploy_model(
@@ -122,6 +120,57 @@ def list_deployments(
     logger.debug(f"Deployment IDs returned: {[str(d.id) for d in deployments]}")
     return deployments
 
+
+@router.get("/model", response_model=list[RunForDownloadResponse])
+def list_downloadable_models(
+    environment_id: uuid.UUID,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    logger.info(f"GET /deployments/environments/{environment_id}/model — requested by user {current_user.id}")
+
+    check_environment(environment_id, current_user, db)
+
+    runs = service.list_downloadable_runs(environment_id=environment_id, db=db)
+    logger.info(f"Returning {len(runs)} downloadable runs for environment {environment_id}")
+    return runs
+
+
+@router.get("/model/download")
+def download_model_by_run(
+    environment_id: uuid.UUID,
+    run_id: uuid.UUID,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    logger.info(
+        f"GET /deployments/environments/{environment_id}/model/download "
+        f"— run_id={run_id}, user={current_user.id}"
+    )
+
+    check_environment(environment_id, current_user, db)
+
+    try:
+        file_path = service.download_model_by_run(run_id=run_id, environment_id=environment_id, db=db)
+    except ValueError as e:
+        logger.warning(f"download_model_by_run rejected — run_id={run_id}: {e}")
+        raise HTTPException(status_code=400, detail=str(e))
+    except FileNotFoundError as e:
+        logger.error(f"download_model_by_run file not found — run_id={run_id}: {e}")
+        raise HTTPException(status_code=404, detail=str(e))
+    except RuntimeError as e:
+        logger.error(f"download_model_by_run failed — run_id={run_id}: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
+
+    logger.info(f"Serving model file for run {run_id} — path={file_path}")
+    return FileResponse(
+        path=file_path,
+        media_type="application/octet-stream",
+        filename="model.pkl",
+    )
+
+
+# ── Routes dynamiques ─────────────────────────────────────────────────────────
 
 @router.get("/{deployment_id}", response_model=DeploymentResponse)
 def get_deployment(

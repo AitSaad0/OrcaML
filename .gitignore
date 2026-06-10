@@ -8,3 +8,4 @@ __pycache__/
 .pytest_cache/
 .ruffle_cache/
 seed_dummy_run.py
+docker-compose.override.yml
