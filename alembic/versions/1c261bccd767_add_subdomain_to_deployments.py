@@ -18,8 +18,7 @@ depends_on: Union[str, Sequence[str], None] = None
 
 
 def upgrade() -> None:
-    op.add_column('deployments', sa.Column('subdomain', sa.String(length=255), nullable=True))
-
+    op.execute("ALTER TABLE deployments ADD COLUMN IF NOT EXISTS subdomain VARCHAR(255)")
 
 def downgrade() -> None:
-    op.drop_column('deployments', 'subdomain')
+    op.execute("ALTER TABLE deployments DROP COLUMN IF EXISTS subdomain")
