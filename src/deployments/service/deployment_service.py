@@ -2,9 +2,7 @@ import logging
 import time
 import uuid
 from datetime import datetime, timezone
-import os
 from io import BytesIO
-from fastapi.responses import FileResponse
 
 import docker
 import httpx
